@@ -50,7 +50,9 @@ export function initActorSystem() {
         const a = acts[i];
         const d2 = (a.pos.x - pp.x) ** 2 + (a.pos.z - pp.z) ** 2;
         a.lod = d2 < 90 * 90 ? 0 : d2 < 260 * 260 ? 1 : 2;
-        a.body.root.visible = d2 < 420 * 420;
+        a.body.root.visible = d2 < 330 * 330;
+        const shadow = d2 < 45 * 45;
+        if (a._shadow !== shadow) { a._shadow = shadow; a.body.root.traverse(o => { if (o.isMesh) o.castShadow = shadow; }); }
         if (!a.alive) {
           corpses++;
           if (corpses > MAX_CORPSES && !a.isPlayer && !a.keepCorpse) { a.remove(); continue; }

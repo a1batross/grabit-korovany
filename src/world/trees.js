@@ -7,7 +7,7 @@ import { mulberry32, fbm } from '../core/rng.js';
 import { heightAt, slopeAt, WATER_LEVEL } from './terrain.js';
 import { WORLD_HALF, LOC, zoneAt, distToAnyRoad } from './zones.js';
 
-export const NEAR = 95;          // radius where trees become 3D
+export const NEAR = 78;          // radius where trees become 3D
 const GRID = 16;                 // spatial hash cell size
 const GN = Math.ceil((WORLD_HALF * 2) / GRID);
 

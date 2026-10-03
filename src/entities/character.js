@@ -3,6 +3,44 @@
 // Model faces +Z. Character's LEFT side is +X.
 import * as THREE from 'three';
 import { makeWeaponMesh } from './weapons.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+
+// ---- draw-call reduction: merge the plain meshes directly under each Group into one vertex-coloured mesh ----
+const bakedMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+const bakeCache = new Map(); // key -> merged geometry (shared by all bodies with the same look)
+function bakeGroup(group, key) {
+  const plain = group.children.filter(c => c.isMesh && !c.material.emissive?.getHex() && c.material.side !== THREE.DoubleSide && !c.material.transparent);
+  if (plain.length < 2) return;
+  let geo = bakeCache.get(key);
+  if (!geo) {
+    const parts = plain.map(m => {
+      m.updateMatrix();
+      let g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+      g.deleteAttribute('uv');
+      g.applyMatrix4(m.matrix);
+      const c = m.material.color, n = g.attributes.position.count;
+      const col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      return g;
+    });
+    geo = mergeGeometries(parts);
+    bakeCache.set(key, geo);
+  }
+  for (const m of plain) group.remove(m);
+  const merged = new THREE.Mesh(geo, bakedMat);
+  merged.castShadow = true;
+  group.add(merged);
+}
+function bakeBody(root, key) {
+  let i = 0;
+  const visit = o => {
+    const kids = o.children.filter(c => !c.isMesh);
+    if (o.isGroup || o === root) bakeGroup(o, key + '/' + (i++));
+    for (const k of kids) visit(k);
+  };
+  visit(root);
+}
 
 const geoCache = new Map();
 function G(key, make) { if (!geoCache.has(key)) geoCache.set(key, make()); return geoCache.get(key); }
@@ -151,6 +189,7 @@ export function createBody(kind = 'peasant', overrides = {}) {
   spine.add(armL, armR);
 
   root.scale.setScalar(scale);
+  bakeBody(root, kind + JSON.stringify(overrides));
   const body = new Body(root, { pelvis, spine, head, armL, armR, legL, legR, eyeL, eyeR }, L, kind);
   return body;
 }
