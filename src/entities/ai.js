@@ -42,6 +42,9 @@ export class AI {
       const d = dx * dx + dz * dz;
       if (d > range * range) continue;
       if (!isHostile(a, t)) continue;
+      if (t === this.ignore && game.time < this.ignoreUntil) continue;
+      // melee fighters ignore targets they cannot reach (archers up on walls / towers)
+      if (Math.abs(t.pos.y - a.pos.y) > 3.2 && !a.activeWeapon.ranged && a.lastHitBy !== t) continue;
       // can't see things behind you unless very close or they hit you recently
       const f = a.forward;
       const dd = Math.sqrt(d);
@@ -72,6 +75,13 @@ export class AI {
         if (this.target && (!this.target.alive || this.target.removed)) this.target = null;
         if (!this.target || (seen && seen !== this.target && a.pos.distanceToSquared(seen.pos) < a.pos.distanceToSquared(this.target.pos) * 0.5)) this.target = seen;
         if (this.target && !isHostile(a, this.target)) this.target = null;
+        // melee: target behind a wall for a while -> give up on it for a few seconds (no pathfinding; go round via orders)
+        const t = this.target;
+        if (t && !a.activeWeapon.ranged && a.lod < 2 && a.pos.distanceToSquared(t.pos) > 9
+          && segmentBlocked(a.pos.x, a.pos.y + 1, a.pos.z, t.pos.x, t.pos.y + 1, t.pos.z)) {
+          this.blockedT = (this.blockedT ?? 0) + 0.4;
+          if (this.blockedT > 1.5) { this.ignore = t; this.ignoreUntil = game.time + 8; this.target = null; this.blockedT = 0; }
+        } else this.blockedT = 0;
       }
       // morale
       const hurt = a.hp / a.maxHp;
@@ -79,6 +89,8 @@ export class AI {
         || a.armsOk === 0 || (hurt < 0.25 && this.courage < 0.5) || (a.moveMode === 'crawl' && this.courage < 0.7);
       if (this.passive && !this.fleeing) this.target = null;
       if (this.passive && this.fleeing && !this.target && a.lastHitBy?.alive) this.target = a.lastHitBy;
+      // got away: stop running once the pursuer is far behind
+      if (this.fleeing && this.target && a.pos.distanceToSquared(this.target.pos) > 45 * 45) this.target = null;
     }
 
     if (a.moveMode === 'crawl' && this.fleeing) {

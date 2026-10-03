@@ -119,6 +119,8 @@ function updateArrows(dt) {
     // actors: closest approach of segment prev->pos to actor vertical axis
     for (const t of game.actors) {
       if (t === ar.owner || !t.alive) continue;
+      // NPC arrows fly past allies (no friendly-fire infighting in big battles)
+      if (!ar.owner.isPlayer && !t.isPlayer && t.faction === ar.owner.faction && ar.owner.ai?.target !== t && !ar.owner.grudges.has(t)) continue;
       const cx = t.pos.x, cz = t.pos.z;
       const sx = ar.pos.x - prev.x, sz = ar.pos.z - prev.z;
       const L2 = sx * sx + sz * sz || 1e-6;
