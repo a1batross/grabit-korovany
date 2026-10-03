@@ -9,6 +9,14 @@
 //  'notify'           { text, kind }
 //  'gold:change'      { amount, total }
 //  'save' / 'load'
+//  (factions gameplay) 'caravan:spawn' { caravan } · 'raid:end' { raid, result: 'repelled'|'success', playerNear }
+//   'order:complete' { order, ok } · 'rank:change' { rank, idx } · 'guard:deserter' {} · 'victory' { key, faction }
+//   'npc:shout' { actor, text } · 'spy:revealed' { spy, by } · 'spy:caught' { spy } · 'army:order' { order, groups, members }
+//   'army:recruit' { actor, type }
+//  (economy/UI/save) 'inventory:change' { id, n } · 'item:used' { id } · 'shop:buy'/'shop:sell' { shop, id, n, price }
+//   'shop:haggle' { ok } · 'player:prosthetic' { part, byHealer } · 'player:wheelchair' · 'player:box' · 'player:sleep' { hours }
+//   'loot:taken' { actor } · 'stats:kill' { actor } · 'achievement' { id } · 'ui:open'/'ui:close' { id } · 'ui:letter'
+//   'save' { slot } · 'load' (save data)
 export class Bus {
   constructor() { this.map = new Map(); }
   on(ev, fn) {
