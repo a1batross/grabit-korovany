@@ -10,7 +10,7 @@ import { addInteractable } from '../../entities/player.js';
 import { spawn } from '../../entities/spawn.js';
 import { pick, rand, randInt } from '../../core/rng.js';
 import { S, stats } from './state.js';
-import { shout, say, banner, playerDist, aliveCount, dist } from './util.js';
+import { shout, say, banner, playerDist, aliveCount, dist, snapActor, applySnap } from './util.js';
 
 export const caravans = [];
 
@@ -135,7 +135,7 @@ function buildCaravanMesh(animal) {
 // ---------- caravan ----------
 let nextId = 1;
 export class Caravan {
-  constructor(routeKey, startFrac = 0) {
+  constructor(routeKey, startFrac = 0, opt = {}) {
     this.id = nextId++;
     this.routeKey = routeKey;
     const R = ROUTES[routeKey];
@@ -148,18 +148,20 @@ export class Caravan {
     this.speed = 2.4 + Math.random() * 0.5;
     this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3();
     this.yaw = 0; this.alive = true; this.state = 'travel'; this.alarmT = 0; this.calmT = 0; this.age = 0;
-    this.merchantName = pick(MERCHANTS);
+    this.merchantName = opt.merchantName ?? pick(MERCHANTS);
     this.name = `Корован (${this.merchantName})`;
-    this.gold = randInt(90, 200);
+    this.gold = opt.gold ?? randInt(90, 200);
     this.goods = {};
     for (const id of Object.keys(GOODS)) if (Math.random() < 0.6) this.goods[id] = randInt(1, id === 'potion_heal' ? 2 : 4);
     if (!Object.keys(this.goods).length) this.goods.bread = 3;
-    this.mesh = buildCaravanMesh(Math.random() < 0.5 ? 'ox' : 'horse');
+    if (opt.goods) this.goods = { ...opt.goods };
+    this.animal = opt.animal ?? (Math.random() < 0.5 ? 'ox' : 'horse');
+    this.mesh = buildCaravanMesh(this.animal);
     game.scene.add(this.mesh.root);
     this.place(0);
     // escort
     this.escorts = [];
-    const nEsc = 2 + (Math.random() < 0.6 ? 1 : 0) + (Math.random() < 0.25 ? 1 : 0);
+    const nEsc = opt.nEsc ?? (2 + (Math.random() < 0.6 ? 1 : 0) + (Math.random() < 0.25 ? 1 : 0));
     const slots = [[-2.3, 1.5], [2.3, -0.5], [0, -4.8], [2.3, 4.0]];
     for (let i = 0; i < nEsc; i++) {
       const p = this.slotWorld(slots[i][0], slots[i][1]);
@@ -395,4 +397,38 @@ export function initCaravans() {
     const c = target?.caravan;
     if (c && c.alive && attacker && attacker.caravan !== c) c.alarm(attacker);
   });
+}
+
+
+// ---------- save / load ----------
+export function saveCaravans() {
+  return {
+    spawnIn: spawnT, wantCount,
+    list: caravans.filter(c => c.alive).map(c => ({
+      route: c.routeKey, s: c.s, state: c.state, gold: c.gold, goods: c.goods, merchantName: c.merchantName, animal: c.animal,
+      age: c.age, robbedAgo: c.state === 'robbed' ? S.t - (c.robbedAt ?? S.t) : null,
+      escorts: c.escorts.map(e => e.alive && !e.removed ? snapActor(e) : null),
+      merchant: c.merchant?.alive && !c.merchant.removed ? snapActor(c.merchant) : null,
+    })),
+  };
+}
+export function loadCaravans(d) {
+  clearCaravans();
+  if (!d) return;
+  spawnT = d.spawnIn ?? 30; wantCount = d.wantCount ?? 3;
+  for (const sc of d.list ?? []) {
+    if (!ROUTES[sc.route]) continue;
+    const R = ROUTES[sc.route];
+    let total = 0; for (let i = 1; i < R.pts.length; i++) total += Math.hypot(R.pts[i][0] - R.pts[i - 1][0], R.pts[i][1] - R.pts[i - 1][1]);
+    const c = new Caravan(sc.route, Math.min(1, sc.s / total), { nEsc: sc.escorts.length, merchantName: sc.merchantName, gold: sc.gold, goods: sc.goods, animal: sc.animal });
+    caravans.push(c);
+    c.age = sc.age ?? 0;
+    c.escorts.forEach((e, i) => { const se = sc.escorts[i]; if (!se) e.remove(); else { applySnap(e, se); e.equipWeapon(se.weapon); } });
+    c.escorts = c.escorts.filter(e => !e.removed);
+    if (!sc.merchant) { c.merchant.remove(); c.merchant = null; } else applySnap(c.merchant, sc.merchant);
+    if (sc.state === 'robbed') {
+      c.state = 'robbed'; c.mesh.cargo.visible = false; c.robbedAt = S.t - (sc.robbedAgo ?? 0);
+      for (const e of [...c.escorts, c.merchant]) if (e?.alive) e.ai.setOrder({ type: 'wander', x: e.pos.x, z: e.pos.z, r: 15 });
+    } else if (sc.state === 'halt') c.state = 'halt';
+  }
 }

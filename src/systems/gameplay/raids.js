@@ -8,6 +8,7 @@ import { S, stats } from './state.js';
 import { Squad, squads } from './squad.js';
 import { routeTo } from './nav.js';
 import { LOC } from '../../world/zones.js';
+import { snapActor, applySnap } from './util.js';
 import { place, dryNear, playerDist, aliveCount, dist, shout, say, banner, hostilesNear } from './util.js';
 
 export const raids = [];   // active raids
@@ -91,7 +92,7 @@ export function launchRaid(attacker, target, o = {}) {
     a.raider = true;
     members.push(a);
   });
-  const raid = { id: nextId++, attacker, target, T, members, started: S.t, announced: false, size, o };
+  const raid = { id: nextId, uid: o.uid ?? nextId++, attacker, target, T, members, started: S.t, announced: false, size, o };
   const squad = new Squad({
     members, faction: attacker, name: ATTACKER_NAMES[attacker], route, kind: 'raid',
     target: { x: tgt.x, z: tgt.z, r: T.r }, assaultTime: 200, cry: o.cry, entry,
@@ -144,7 +145,8 @@ function endRaid(raid, result) {
   game.compassPois.delete('raid' + raid.id);
   for (const [a, order] of raid.rallied ?? []) if (a.alive && !a.squad) a.ai.setOrder(order);
   const T = raid.T, pf = game.playerFaction;
-  const defendersWon = result === 'wiped' || result === 'repelled' || result === 'lost';
+  // a timed-out assault is not a capture: the attackers give up and retreat. Success needs a cleared base ('won').
+  const defendersWon = result !== 'won';
   raid.result = defendersWon ? 'repelled' : 'success';
   const playerNear = playerDist(T.at()) < 160 || raid.playerHelped;
   if (defendersWon) {
@@ -169,6 +171,9 @@ function endRaid(raid, result) {
 
 // ---------- spies ----------
 export const spies = new Set();
+let nextSpyUid = 1;
+export function findSpy(uid) { for (const a of spies) if (a.spyUid === uid && a.alive && !a.removed) return a; return null; }
+export function findRaid(uid) { return raids.find(r => r.uid === uid) ?? null; }
 // spawn a disguised spy. side: 'villain' (disguised as human, targets palace/town) or 'guard' (лазутчик, disguised as a minion)
 export function spawnSpy(where, o = {}) {
   let a;
@@ -191,6 +196,8 @@ export function spawnSpy(where, o = {}) {
     a.ai.setOrder({ type: 'goto', x: y.x, z: y.z, r: 6, then: { type: 'wander', x: y.x, z: y.z, r: 15 } });
   }
   a.transient = true; a.undercover = true;
+  a.mission = true; // exempt from distance cleanup while on the job
+  a.spyUid = o.uid ?? nextSpyUid++;
   a.ai.aggroRange = 0.01; // pretends to be harmless
   a.strikeAt = S.t + (o.strikeIn ?? rand(100, 160));
   spies.add(a);
@@ -221,7 +228,8 @@ function spyStrike(a) {
 function updateSpies() {
   for (const a of [...spies]) {
     if (!a.alive || a.removed) { spies.delete(a); continue; }
-    if (a.undercover && a.spyTarget !== 'town' && S.t > a.strikeAt) spyStrike(a);
+    // strike once arrived (or when he has been dawdling far too long)
+    if (a.undercover && a.spyTarget !== 'town' && S.t > a.strikeAt && (a.ai.order.type !== 'goto' || S.t > a.strikeAt + 120)) spyStrike(a);
     if (a.revealed && !a.undercover && a.ai.target == null && a.ai.order.type !== 'assault') {
       // flee back out after striking
     }
@@ -330,4 +338,50 @@ export function initRaids() {
     label: () => `Досмотреть: ${inspectCand?.name ?? ''}`,
     use: inspect,
   });
+}
+
+
+// ---------- save / load of active raids and spies ----------
+export function saveRaids() {
+  return {
+    nextRaidIn: nextRaidT - S.t, nextBgIn: nextBgT - S.t, raidN, nextId, nextSpyUid,
+    raids: raids.filter(r => !r.result && r.squad && !r.squad.ended).map(r => ({
+      uid: r.uid, attacker: r.attacker, target: r.target, size: r.size, state: r.squad.state, wp: r.squad.wp,
+      route: r.squad.route, playerHelped: !!r.playerHelped, elapsed: S.t - r.started,
+      o: { playerSide: !!r.o.playerSide, quiet: !!r.o.quiet, transient: r.o.transient ?? true, cry: r.o.cry ?? null, leaderName: r.o.leaderName ?? null },
+      members: r.squad.members.filter(m => m.alive).map(snapActor),
+    })),
+    spies: [...spies].filter(a => a.alive && !a.removed).map(a => ({
+      uid: a.spyUid, where: a.spyTarget, undercover: !!a.undercover, strikeIn: (a.strikeAt ?? S.t) - S.t, transient: !!a.transient, ...snapActor(a),
+    })),
+  };
+}
+
+export function loadRaids(d) {
+  // drop the defaults spawned by startGame
+  for (const r of [...raids]) { for (const m of r.members) m.remove(); r.squad?.dissolve('load'); }
+  raids.length = 0;
+  for (const a of [...spies]) a.remove();
+  spies.clear();
+  if (!d) return;
+  nextRaidT = S.t + (d.nextRaidIn ?? 120); nextBgT = S.t + (d.nextBgIn ?? 300); raidN = d.raidN ?? 0;
+  nextId = Math.max(nextId, d.nextId ?? 1); nextSpyUid = Math.max(nextSpyUid, d.nextSpyUid ?? 1);
+  for (const sr of d.raids ?? []) {
+    if (!sr.members?.length) continue;
+    const m0 = sr.members[0];
+    const route = (sr.route ?? []).slice(sr.wp ?? 0);
+    const raid = launchRaid(sr.attacker, sr.target, {
+      ...sr.o, cry: sr.o.cry ?? undefined, leaderName: sr.o.leaderName ?? undefined,
+      size: sr.members.length, spawnAt: { x: m0.x, z: m0.z }, route, announce: false, uid: sr.uid,
+    });
+    raid.size = sr.size; raid.playerHelped = sr.playerHelped; raid.started = S.t - (sr.elapsed ?? 0);
+    raid.squad.members.forEach((m, i) => { const sm = sr.members[i]; if (sm) { applySnap(m, sm); if (sm.weapon) m.equipWeapon(sm.weapon); m.name = sm.name; } });
+    if (sr.state === 'assault') raid.squad.startAssault();
+  }
+  for (const ss of d.spies ?? []) {
+    const a = spawnSpy(ss.where, { uid: ss.uid, strikeIn: ss.strikeIn });
+    applySnap(a, ss);
+    a.transient = ss.transient;
+    if (!ss.undercover) { a.undercover = false; a.revealed = true; a.ai.aggroRange = null; a.ai.passive = false; }
+  }
 }

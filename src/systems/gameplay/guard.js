@@ -7,7 +7,7 @@ import { addInteractable } from '../../entities/player.js';
 import { pick, rand, randInt } from '../../core/rng.js';
 import { S, stats } from './state.js';
 import { place, placeList, playerDist, dist, shout, say, banner, dialog, fmtTime } from './util.js';
-import { launchRaid, spawnSpy, raids, delayNextRaid, spies } from './raids.js';
+import { launchRaid, spawnSpy, raids, delayNextRaid, spies, findRaid, findSpy } from './raids.js';
 import { setPlayerSquadSize, releaseArmy } from './army.js';
 
 export const RANKS = ['Рядовой', 'Ефрейтор', 'Сержант', 'Лейтенант', 'Капитан'];
@@ -127,16 +127,16 @@ function giveOrder(o, viaCommander = false) {
 
 const POST_NAMES = ['у главных ворот', 'на восточной стене', 'у казармы', 'на северной башне', 'у тронного зала', 'на южной стене', 'у конюшни', 'на западной стене', 'у колодца', 'у сокровищницы'];
 
-function orderPost() {
+function orderPost(p0 = {}) {
   const posts = placeList('palace:posts');
-  const i = randInt(0, posts.length - 1);
+  const i = Math.min(p0.i ?? randInt(0, posts.length - 1), posts.length - 1);
   const p = posts[i];
-  const dur = randInt(60, 100);
-  let held = 0, away = 0, warned = false;
+  const dur = p0.dur ?? randInt(60, 100);
+  let held = p0.held ?? 0, away = p0.away ?? 0, warned = false;
   return {
     type: 'post', title: `Стоять на посту ${POST_NAMES[i % POST_NAMES.length]}`, pay: 20, merit: 2,
     speech: `Заступай на пост ${POST_NAMES[i % POST_NAMES.length]}! Стоять ${dur} секунд и не сходить с места!`,
-    data: { i, dur },
+    save: () => ({ i, dur, held, away }),
     poi: () => ({ x: p.x, z: p.z }),
     progress: () => held > 0 ? `На посту: ${fmtTime(held)} / ${fmtTime(dur)}` : `Идите на пост (${Math.round(playerDist(p))} м)`,
     update(dt) {
@@ -153,13 +153,14 @@ function orderPost() {
   };
 }
 
-function orderPatrol() {
+function orderPatrol(p0 = {}) {
   const road = ROADS.townPalace;
   const pts = [road[4], road[3], road[2], road[3], road[5]].map(([x, z]) => ({ x, z }));
-  let k = 0;
+  let k = p0.k ?? 0;
   return {
     type: 'patrol', title: 'Патрулировать дорогу к Слободе', pay: 30, merit: 3,
     speech: 'Пройди патрулём по дороге до Слободы и обратно. Гляди в оба — там разбойники и эльфы шастают.',
+    save: () => ({ k }),
     poi: () => pts[k] ?? pts[pts.length - 1],
     progress: () => `Точка патруля ${k + 1} / ${pts.length} (${Math.round(playerDist(pts[k] ?? pts[0]))} м)`,
     update() {
@@ -184,29 +185,34 @@ function orderSpy(forceWhere = null, existing = null) {
     speech: where === 'town'
       ? 'Донесли: в Слободе шпион Злого, переодетый крестьянином. Досматривай подозрительных (E) и прикончи гада!'
       : 'Во дворец пробрался шпион, одет как крестьянин! Найди его, пока он не добрался до императора!',
-    spy, poi: () => ({ x: sq.x, z: sq.z }),
+    spy, save: () => ({ where, spyUid: spy.spyUid }),
+    poi: () => ({ x: sq.x, z: sq.z }),
     progress: () => spy.revealed ? 'Шпион раскрыт — убейте его!' : `Досматривайте подозрительных (E) около ${where === 'town' ? 'площади Слободы' : 'двора дворца'}`,
     update() {
       if (!spy.alive) { stats().spiesCaught += spy.revealed ? 0 : 1; return finishOrder(true, 'Шпион обезврежен.'); }
       if (spy.removed || S.t - this.t0 > 420) finishOrder(false, 'Шпион ушёл!');
     },
-    cleanup() { if (spy.alive && spy.undercover) { spy.transient = true; } },
+    cleanup() { if (spy.alive && spy.undercover) { spy.transient = true; spy.mission = false; } },
   };
 }
 
-function orderRaid() {
-  const target = S.bossDead.villain || Math.random() < 0.55 ? 'elves' : 'fort';
+function orderRaid(p0 = {}) {
+  const target = p0.target ?? (S.bossDead.villain || Math.random() < 0.55 ? 'elves' : 'fort');
   const tName = target === 'elves' ? 'эльфийскую деревню' : 'форт Злого';
   // the squad gathers at a staging point on the road near the enemy and waits for you
   const stage = target === 'elves' ? { x: -420, z: 165, name: 'на дороге к западу от Слободы' } : { x: 205, z: -598, name: 'на горной дороге к форту' };
-  let raid = null, assaultT = 0, started = false, joined = false;
+  let raid = p0.raidUid != null ? findRaid(p0.raidUid) : null;
+  let assaultT = p0.assaultT ?? 0, started = !!raid || !!p0.started, joined = !!p0.joined;
+  if (raid) raid.squad.hold = () => !joined;
   const o = {
     type: 'raid', title: `Набег на ${tName}`, pay: 70, merit: 5, target,
     speech: `Идём в набег на ${tName}! Отряд сержанта Петренко ждёт тебя ${stage.name}. Бегом туда — без тебя не выступят!`,
+    save: () => ({ target, raidUid: raid?.uid ?? null, assaultT, joined, started }),
     poi: () => { const L = raid?.squad?.members?.find(m => m.alive); return L ? { x: L.pos.x, z: L.pos.z } : stage; },
-    progress: () => !joined ? `Бегите к отряду (${Math.round(playerDist(stage))} м)` : raid.squad?.state === 'assault' ? `Бой! (${Math.round(assaultT)} с)` : `Идите с отрядом (${Math.round(playerDist(o.poi()))} м до сержанта)`,
+    progress: () => !joined ? `Бегите к отряду (${Math.round(playerDist(stage))} м)` : raid?.squad?.state === 'assault' ? `Бой! (${Math.round(assaultT)} с)` : `Идите с отрядом (${Math.round(playerDist(o.poi()))} м до сержанта)`,
     update(dt) {
-      if (!started) {
+      if (!started || !raid) {
+        if (started && !raid) return finishOrder(false, 'Отряд распущен.');
         started = true;
         raid = launchRaid('guard', target, {
           size: 7, spawnAt: stage, leaderName: 'Сержант Петренко', announce: false, transient: true, playerSide: true, quiet: true,
@@ -239,6 +245,7 @@ function orderDefend(raid) {
   return {
     type: 'defend', title: 'Защитить дворец!', pay: 50, merit: 4, raid,
     speech: `${raid.attacker === 'villain' ? 'Войска Злого' : 'Эльфы-партизаны'} идут на дворец! Все к воротам! Защищать императора!`,
+    save: () => ({ raidUid: raid.uid }),
     poi: () => { const L = raid.squad?.members?.find(m => m.alive); return L ? { x: L.pos.x, z: L.pos.z } : place('palace:gate'); },
     progress: () => `Врагов осталось: ${raid.squad?.members?.filter(m => m.alive).length ?? 0}`,
     update() {
@@ -255,11 +262,43 @@ function orderReport() {
   const o = {
     type: 'report', title: 'Явиться к командиру', pay: 5, merit: 0,
     speech: 'Новобранец! Явись ко мне за приказом.',
+    save: () => ({}),
     poi: () => game.commander?.alive ? { x: game.commander.pos.x, z: game.commander.pos.z } : place('palace:commander'),
     progress: () => `Командир в ${Math.round(playerDist(o.poi()))} м — подойдите и нажмите E`,
     update() {},
   };
   return o;
+}
+
+// ---------- save / load of the active order ----------
+export function saveGuard() {
+  const o = G.order;
+  return {
+    orderId, nextOrderIn: G.nextOrderT - S.t, lastType: G.lastType ?? null,
+    order: o ? { type: o.type, id: o.id, elapsed: S.t - o.t0, p: o.save?.() ?? {} } : null,
+  };
+}
+export function loadGuard(d) {
+  if (!d) return;
+  if (G.order) { G.order.cleanup?.(); G.order = null; }
+  game.compassPois.delete('order');
+  orderId = Math.max(orderId, d.orderId ?? 1);
+  G.nextOrderT = S.t + (d.nextOrderIn ?? 20);
+  G.lastType = d.lastType;
+  const so = d.order;
+  if (!so || S.deserter) { setHud(); return; }
+  let o = null;
+  if (so.type === 'post') o = orderPost(so.p);
+  else if (so.type === 'patrol') o = orderPatrol(so.p);
+  else if (so.type === 'raid') o = orderRaid(so.p);
+  else if (so.type === 'report') o = orderReport();
+  else if (so.type === 'spy') { const spy = findSpy(so.p.spyUid); if (spy) o = orderSpy(so.p.where, spy); }
+  else if (so.type === 'defend') { const r = findRaid(so.p.raidUid); if (r) o = orderDefend(r); }
+  if (!o) { G.nextOrderT = S.t + 5; setHud(); return; } // the mission target no longer exists: a fresh order soon
+  o.id = so.id; o.t0 = S.t - (so.elapsed ?? 0);
+  G.order = o;
+  if (o.poi) game.compassPois.set('order', { ...o.poi(), label: '★', color: '#ffd84a' });
+  setHud();
 }
 
 function newOrder(viaCommander = false) {

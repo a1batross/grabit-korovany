@@ -199,3 +199,41 @@ export function dialog({ title, html, buttons = [], parchment = true, width = 52
 
 export const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 export { groundAt };
+
+// ---------- actor snapshots (save/load of NPCs that matter: army, raiders, escorts, spies) ----------
+const LIMB_KEYS = ['armL', 'armR', 'legL', 'legR', 'eyeL', 'eyeR'];
+export function snapActor(a) {
+  return {
+    kind: a.kind, faction: a.faction, name: a.name, preset: a.preset ?? null,
+    x: +a.pos.x.toFixed(2), y: +a.pos.y.toFixed(2), z: +a.pos.z.toFixed(2), yaw: +a.yaw.toFixed(3),
+    hp: Math.round(a.hp * 10) / 10, maxHp: a.maxHp, armor: a.armor, weapon: a.weapon?.id ?? 'fists', shield: !!a.shield,
+    limbs: { ...a.limbs }, bleed: a.bleed, ranged: !!a.weapon?.ranged,
+  };
+}
+export function presetFor(d) {
+  if (d.preset) return d.preset;
+  const r = d.ranged;
+  return ({ guard: r ? 'guardArcher' : 'guard', minion: r ? 'minionArcher' : 'minion', elf: r ? 'elfArcher' : 'elf' })[d.kind] ?? d.kind;
+}
+export function spawnArgs(d) {
+  return { name: d.name, hp: d.maxHp, armor: d.armor, weapon: d.weapon, shield: d.shield, yaw: d.yaw, y: d.y };
+}
+// apply position / health / injuries (lost limbs are detached silently, prosthetics refitted)
+export function applySnap(a, d) {
+  a.pos.set(d.x, d.y ?? a.pos.y, d.z); a.vel.set(0, 0, 0); a.yaw = d.yaw ?? a.yaw;
+  a.body.root.position.copy(a.pos);
+  a.maxHp = d.maxHp ?? a.maxHp; a.hp = Math.min(a.maxHp, d.hp ?? a.maxHp);
+  for (const part of LIMB_KEYS) {
+    const st = d.limbs?.[part];
+    if (!st || st === 'ok') continue;
+    const obj = a.body.detach(part, game.scene);
+    if (obj) obj.parent?.remove(obj);
+    a.limbs[part] = 'lost';
+    if (part === 'armR') a.body.setWeapon(null);
+    if (part === 'armL') { a.shield = false; a.body.setShield(false); }
+    if (st === 'prosthetic') a.fitProsthetic(part);
+  }
+  a.bleed = d.bleed ?? 0;
+  if (a.legsOk < 2) a.body.setWheelchair?.(false);
+  return a;
+}

@@ -6,11 +6,12 @@ import { pick, randInt } from '../../core/rng.js';
 import { S } from './state.js';
 import { Squad, formationSlot } from './squad.js';
 import { routeTo } from './nav.js';
-import { place, dryNear, playerDist, dist, shout, say, aliveCount } from './util.js';
+import { place, dryNear, playerDist, dist, shout, say, aliveCount, snapActor, applySnap, presetFor, spawnArgs } from './util.js';
 import { TARGETS, entryFor, fullRoute, chainOrder } from './raids.js';
 import { caravans } from './caravans.js';
 
 export const ARMY_CAP = 40;
+let lastSquad = null;
 export const GROUP_NAMES = { 1: 'Личная гвардия', 2: 'Второй отряд', 3: 'Лучники' };
 export const groupOrders = { 1: 'follow', 2: 'defend', 3: 'defend' };
 export const ORDER_NAMES = {
@@ -50,7 +51,7 @@ export function addToArmy(a, group) {
 function spawnUnit(preset, x, z, group, extra = {}) {
   const p = dryNear(x, z, 3);
   const a = spawn(preset, p.x, p.z, extra);
-  a.armyGroup = group; a.transient = false; a.ai.leash = 60;
+  a.armyGroup = group; a.transient = false; a.ai.leash = 60; a.preset = preset;
   return a;
 }
 
@@ -141,7 +142,7 @@ function refollow() {
 }
 
 // commandArmy('attack:palace', [1,2,3]) -> { ok, msg }
-export function commandArmy(order, groups = [1, 2, 3]) {
+export function commandArmy(order, groups = [1, 2, 3], quiet = false) {
   const p = game.player;
   if (!p?.alive) return { ok: false, msg: 'Вы мертвы' };
   const members = armyMembers(groups);
@@ -182,6 +183,7 @@ export function commandArmy(order, groups = [1, 2, 3]) {
         else { say('Атака захлебнулась! Остатки войск отступают.', 'bad'); for (const g of groups) groupOrders[g] = 'retreat'; }
       },
     });
+    lastSquad = sq;
     sq.cry = { villain: 'За Злого! В атаку!', guard: 'За императора! Вперёд!', elves: 'За лес! Вперёд!' }[game.playerFaction];
     msg = `Войска выступили: ${T.name}`;
   } else if (order === 'caravan') {
@@ -198,6 +200,7 @@ export function commandArmy(order, groups = [1, 2, 3]) {
       onAssault: () => cv.alarm(members[0]),
       onEnd: (res) => { if (res === 'won') say('Охрана корована перебита! Грабьте корован (E)!', 'good'); },
     });
+    lastSquad = sq;
     sq.cry = 'Грабь корованы!';
     game.compassPois.set('armyCaravan', { x: cv.pos.x, z: cv.pos.z, label: '🐂!', color: '#ff9030' });
     setTimeout(() => game.compassPois.delete('armyCaravan'), 60000);
@@ -208,7 +211,7 @@ export function commandArmy(order, groups = [1, 2, 3]) {
     follow: ['Слушаюсь!', 'Идём за тобой!'], hold: ['Стоим насмерть!', 'Есть стоять!'], defend: ['Есть охранять!'], retreat: ['Отходим!'],
     caravan: ['Грабить корованы!', 'Корованы! Наконец-то!'],
   }[order] ?? ['В атаку!', 'Будет сделано!'];
-  shout(L, pick(cries), { range: 50 });
+  if (!quiet) shout(L, pick(cries), { range: 50 });
   game.bus.emit('army:order', { order, groups, members });
   return { ok: true, msg };
 }
@@ -231,4 +234,37 @@ export function updateArmy(dt) {
 
 export function resetArmy() {
   groupOrders[1] = 'follow'; groupOrders[2] = 'defend'; groupOrders[3] = game.playerFaction === 'villain' ? 'defend' : 'follow';
+}
+
+
+// ---------- save / load of the player's troops ----------
+export function saveArmy() {
+  const units = armyMembers().map(a => ({ g: a.armyGroup, squadState: a.squad?.kind === 'army' ? a.squad.state : null, ...snapActor(a) }));
+  const go = {};
+  for (const k of Object.keys(groupOrders)) go[k] = groupOrders[k];
+  return { units, groupOrders: go };
+}
+export function loadArmy(d) {
+  if (!d) return;
+  for (const a of armyMembers()) { a.squad?.release?.([a]); a.remove(); }
+  for (const u of d.units ?? []) {
+    const a = spawn(presetFor(u), u.x, u.z, spawnArgs(u));
+    applySnap(a, u);
+    a.armyGroup = u.g; a.transient = false; a.ai.leash = 60; a.preset = presetFor(u);
+  }
+  for (const [k, v] of Object.entries(d.groupOrders ?? {})) groupOrders[k] = v;
+  // resume orders: groups sharing an order are commanded together (quietly)
+  const byOrder = new Map();
+  for (const g of [1, 2, 3]) { const o = groupOrders[g]; if (!byOrder.has(o)) byOrder.set(o, []); byOrder.get(o).push(g); }
+  for (const [o, gs] of byOrder) {
+    if (!armyMembers(gs).length) continue;
+    if (o === 'follow' || o === 'defend') { gs.forEach(applyOrder); continue; }
+    if (o === 'hold') { for (const m of armyMembers(gs)) m.ai.setOrder({ type: 'guard', x: m.pos.x, z: m.pos.z, r: 1.5 }); continue; }
+    lastSquad = null;
+    const r = commandArmy(o, gs, true);
+    if (!r.ok) { gs.forEach(g => { groupOrders[g] = 'defend'; applyOrder(g); }); continue; }
+    // the assault was already under way: no marching back to the gate
+    const wasAssault = (d.units ?? []).some(u => gs.includes(u.g) && u.squadState === 'assault');
+    if (wasAssault && lastSquad && !lastSquad.dissolved) lastSquad.startAssault();
+  }
 }

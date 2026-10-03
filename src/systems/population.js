@@ -182,7 +182,7 @@ export function updatePopulation(dt) {
   }
   // transient actors (raiders, caravan escorts, freed squads) vanish once far from the player
   for (const a of [...game.actors]) {
-    if (a.isPlayer || !a.transient || a.squad || a.armyGroup || a.caravan?.alive) continue;
+    if (a.isPlayer || !a.transient || a.squad || a.armyGroup || a.caravan?.alive || (a.mission && a.alive)) continue;
     if (playerDist(a.pos) > 230) a.remove();
   }
 }

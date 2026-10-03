@@ -6,8 +6,8 @@ import { addInteractable } from '../../entities/player.js';
 import { spawn } from '../../entities/spawn.js';
 import { pick, rand } from '../../core/rng.js';
 import { S, stats } from './state.js';
-import { place, playerDist, dist, shout, say, banner, dialog, dryNear } from './util.js';
-import { raids } from './raids.js';
+import { place, playerDist, dist, shout, say, banner, dialog, dryNear, snapActor, applySnap, presetFor, spawnArgs } from './util.js';
+import { raids, findRaid } from './raids.js';
 import { caravans } from './caravans.js';
 import { setPlayerSquadSize } from './army.js';
 import { formationSlot } from './squad.js';
@@ -72,7 +72,7 @@ function giveTask(t) {
 
 function taskCaravan() {
   const t = {
-    type: 'caravan', title: 'Ограбить корован', pay: 60, rep: 2,
+    type: 'caravan', title: 'Ограбить корован', pay: 60, rep: 2, save: () => ({}),
     speech: 'Люди везут товары мимо нашего леса. Ограбь корован — нам нужны хлеб, вино и ткани!',
     poi: () => { const c = caravans.filter(c => c.state !== 'robbed').sort((a, b) => playerDist(a.pos) - playerDist(b.pos))[0]; return c ? { x: c.pos.x, z: c.pos.z } : place('elves:square'); },
     progress: () => `Ближайший корован: ${Math.round(playerDist(t.poi()))} м (🐂 на компасе)`,
@@ -81,24 +81,29 @@ function taskCaravan() {
   return t;
 }
 
-function taskAmbush() {
-  const faction = Math.random() < 0.6 ? 'guard' : 'villain';
+function taskAmbush(p0 = null) {
+  const faction = p0?.faction ?? (Math.random() < 0.6 ? 'guard' : 'villain');
   const road = ROADS.townWest;
   const pts = [road[1], road[2], road[3], road[2]];
   const members = [];
   const start = dryNear(road[1][0], road[1][1], 2);
-  for (let i = 0; i < 4; i++) {
-    const a = spawn(faction === 'guard' ? (i === 3 ? 'guardArcher' : 'guard') : (i === 3 ? 'minionArcher' : 'minion'), start.x + i * 1.5, start.z + i, i === 0 ? { name: faction === 'guard' ? 'Десятник патруля' : 'Вожак патруля' } : {});
+  const snaps = p0?.members ?? [0, 1, 2, 3].map(() => null);
+  snaps.forEach((sn, i) => {
+    const preset = sn ? presetFor(sn) : faction === 'guard' ? (i === 3 ? 'guardArcher' : 'guard') : (i === 3 ? 'minionArcher' : 'minion');
+    const a = spawn(preset, sn?.x ?? start.x + i * 1.5, sn?.z ?? start.z + i, sn ? spawnArgs(sn) : i === 0 ? { name: faction === 'guard' ? 'Десятник патруля' : 'Вожак патруля' } : {});
+    if (sn) applySnap(a, sn);
     a.transient = false; a.taskTarget = true;
     members.push(a);
-  }
+  });
+  if (!members.length) return null;
   members[0].ai.setOrder({ type: 'patrol', points: pts, i: 1 });
   members.slice(1).forEach((m, i) => { const f = formationSlot(i + 1, 2); m.ai.setOrder({ type: 'follow', leader: members[0], ox: f.ox, oz: f.oz }); });
   const t = {
     type: 'ambush', title: `Устроить засаду на патруль ${faction === 'guard' ? 'дворца' : 'Злого'}`, pay: 55, rep: 2, members,
+    save: () => ({ faction, members: members.filter(m => m.alive && !m.removed).map(snapActor) }),
     speech: `Патруль ${faction === 'guard' ? 'дворцовой стражи' : 'Злого'} рыщет по дороге у Слободы. Устрой засаду — пусть ни один не уйдёт!`,
     poi: () => { const L = members.find(m => m.alive); return L ? { x: L.pos.x, z: L.pos.z } : { x: pts[0][0], z: pts[0][1] }; },
-    progress: () => `Осталось врагов: ${members.filter(m => m.alive).length}/4`,
+    progress: () => `Осталось врагов: ${members.filter(m => m.alive).length}`,
     update() {
       game.compassPois.set('order', { ...t.poi(), label: '★', color: '#7aff6a' });
       // leaderless patrol keeps going
@@ -114,7 +119,7 @@ function taskAmbush() {
 
 function taskDefend(raid) {
   const t = {
-    type: 'defend', title: 'Защитить деревню', pay: 45, rep: 2, raid,
+    type: 'defend', title: 'Защитить деревню', pay: 45, rep: 2, raid, save: () => ({ raidUid: raid.uid }),
     speech: 'Набигают! Защити деревню, брат!',
     poi: () => { const L = raid.squad?.members?.find(m => m.alive); return L ? { x: L.pos.x, z: L.pos.z } : place('elves:square'); },
     progress: () => `Врагов: ${raid.squad?.members?.filter(m => m.alive).length ?? 0}`,
@@ -127,10 +132,10 @@ function taskDefend(raid) {
   return t;
 }
 
-function taskHunt() {
-  const victim = Math.random() < 0.5 && game.commander?.alive ? game.commander : null;
+function taskHunt(force = false) {
+  const victim = (force || Math.random() < 0.5) && game.commander?.alive ? game.commander : null;
   const t = victim ? {
-    type: 'hunt', title: `Убить ${victim.name}`, pay: 150, rep: 4, victim,
+    type: 'hunt', title: `Убить ${victim.name}`, pay: 150, rep: 4, victim, save: () => ({}),
     speech: `${victim.name} водит солдат на наш лес. Убей его — и солдаты долго не сунутся!`,
     poi: () => ({ x: victim.pos.x, z: victim.pos.z }),
     progress: () => `Цель во дворце, ${Math.round(playerDist(victim.pos))} м`,
@@ -163,6 +168,35 @@ function talkChief() {
       ...(t && t.type !== 'defend' ? [{ label: 'Отказаться от задания', fn: () => finishTask(false, 'Вы отказались.') }] : []),
     ],
   });
+}
+
+// debug/tests: give a specific task now ('caravan'|'ambush'|'hunt')
+export function forceTask(type) {
+  if (E.task) { E.task.cleanup?.(); E.task = null; }
+  giveTask({ caravan: taskCaravan, ambush: taskAmbush, hunt: () => taskHunt(true) }[type]());
+  return E.task;
+}
+
+// ---------- save / load of the active task ----------
+export function saveElves() {
+  const t = E.task;
+  return { taskId, nextTaskIn: E.nextTaskT - S.t, lastType: E.lastType ?? null,
+    task: t ? { type: t.type, id: t.id, elapsed: S.t - t.t0, p: t.save?.() ?? {} } : null };
+}
+export function loadElves(d) {
+  if (!d) return;
+  if (E.task) { E.task.cleanup?.(); for (const m of E.task.members ?? []) m.remove(); E.task = null; }
+  game.compassPois.delete('order');
+  taskId = Math.max(taskId, d.taskId ?? 1);
+  E.nextTaskT = S.t + (d.nextTaskIn ?? 20); E.lastType = d.lastType;
+  const st = d.task;
+  let t = null;
+  if (st?.type === 'caravan') t = taskCaravan();
+  else if (st?.type === 'ambush') t = taskAmbush(st.p);
+  else if (st?.type === 'hunt') t = taskHunt(true);
+  else if (st?.type === 'defend') { const r = findRaid(st.p.raidUid); if (r) t = taskDefend(r); }
+  if (t) { t.id = st.id; t.t0 = S.t - (st.elapsed ?? 0); E.task = t; if (t.poi) game.compassPois.set('order', { ...t.poi(), label: '★', color: '#7aff6a' }); }
+  setHud();
 }
 
 export function updateObjectives() {
