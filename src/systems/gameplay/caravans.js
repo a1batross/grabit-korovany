@@ -8,6 +8,7 @@ import { ROADS } from '../../world/zones.js';
 import { groundAt } from '../../world/terrain.js';
 import { addInteractable } from '../../entities/player.js';
 import { spawn } from '../../entities/spawn.js';
+import { loft } from '../../entities/model-geometry.js';
 import { pick, rand, randInt } from '../../core/rng.js';
 import { S, stats } from './state.js';
 import { shout, say, banner, playerDist, aliveCount, dist, snapActor, applySnap } from './util.js';
@@ -36,6 +37,7 @@ export const GOODS = {
 const _c = new THREE.Color();
 function part(geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {
   const g = geo.clone();
+  g.deleteAttribute('uv'); // All caravan surfaces use vertex colors, including lofted shapes.
   if (rx) g.rotateX(rx); if (ry) g.rotateY(ry); if (rz) g.rotateZ(rz);
   g.translate(x, y, z);
   _c.set(color);
@@ -83,18 +85,29 @@ function geos() {
   for (let i = 0; i < 6; i++) wheel.push(part(box(0.05, 1.0, 0.05), wood, 0, 0, 0, i * Math.PI / 6));
   // ox body (static) + leg
   const ox = [
-    part(box(0.85, 0.8, 1.8), '#6a4a32', 0, 1.15, 0), part(box(0.5, 0.5, 0.55), '#5a3a26', 0, 1.3, 1.1),
+    part(loft([[-0.4, 0.56, 1.5], [-0.12, 0.85, 1.8], [0.22, 0.8, 1.7], [0.4, 0.55, 1.45]]), '#6a4a32', 0, 1.15, 0),
+    part(loft([[-0.25, 0.31, 0.44], [0.08, 0.5, 0.55], [0.25, 0.36, 0.43]]), '#5a3a26', 0, 1.3, 1.1),
     part(box(0.36, 0.2, 0.2), '#d8c8b0', 0, 1.2, 1.42), // muzzle
     part(cyl(0.04, 0.06, 0.45, 5), '#e8e0d0', 0.32, 1.6, 1.0, 0, 0, -1.1), part(cyl(0.04, 0.06, 0.45, 5), '#e8e0d0', -0.32, 1.6, 1.0, 0, 0, 1.1),
     part(box(0.08, 0.6, 0.08), '#4a3020', 0, 1.0, -0.95, 0.3),
+    part(new THREE.TorusGeometry(0.43, 0.035, 4, 12), '#3c2a20', 0, 1.15, 0.35),
   ];
   const horse = [
-    part(box(0.6, 0.7, 1.7), '#8a5a32', 0, 1.35, 0), part(box(0.32, 0.8, 0.35), '#8a5a32', 0, 1.85, 0.85, 0.6),
-    part(box(0.28, 0.3, 0.6), '#7a4a28', 0, 2.2, 1.25, 0.3), part(box(0.1, 0.5, 0.4), '#2a1a10', 0, 2.05, 0.75, 0.6),
+    part(loft([[-0.35, 0.38, 1.35], [-0.1, 0.6, 1.7], [0.22, 0.56, 1.55], [0.35, 0.38, 1.4]]), '#8a5a32', 0, 1.35, 0),
+    part(loft([[-0.4, 0.38, 0.48], [0.1, 0.28, 0.32], [0.4, 0.23, 0.3]]), '#8a5a32', 0, 1.85, 0.85, 0.6),
+    part(loft([[-0.15, 0.2, 0.43], [0.04, 0.28, 0.6], [0.15, 0.23, 0.42]]), '#7a4a28', 0, 2.2, 1.25, 0.3),
+    part(box(0.08, 0.5, 0.29), '#2a1a10', 0, 2.05, 0.75, 0.6),
     part(box(0.1, 0.7, 0.12), '#2a1a10', 0, 1.2, -0.95, 0.4),
+    part(new THREE.TorusGeometry(0.33, 0.03, 4, 12), '#3c2a20', 0, 1.35, 0.4),
   ];
-  const leg = [part(box(0.17, 0.8, 0.17), '#4a3222', 0, -0.4, 0), part(box(0.19, 0.12, 0.19), '#222', 0, -0.78, 0)];
-  const hleg = [part(box(0.13, 1.0, 0.13), '#7a4a28', 0, -0.5, 0), part(box(0.15, 0.12, 0.15), '#222', 0, -0.98, 0)];
+  for (const s of [-1, 1]) {
+    ox.push(part(new THREE.ConeGeometry(0.08, 0.22, 4), '#5a3a26', s * 0.26, 1.51, 1.1, 0, 0, -s * 1.05),
+      part(new THREE.IcosahedronGeometry(0.032, 0), '#16120d', s * 0.239, 1.42, 1.25));
+    horse.push(part(new THREE.ConeGeometry(0.06, 0.23, 4), '#8a5a32', s * 0.09, 2.46, 1.13, -0.2),
+      part(new THREE.IcosahedronGeometry(0.026, 0), '#16120d', s * 0.135, 2.25, 1.36));
+  }
+  const leg = [part(loft([[-0.75, 0.105, 0.11], [-0.38, 0.125, 0.14, -0.035], [0, 0.19, 0.2]]), '#4a3222'), part(box(0.19, 0.12, 0.19), '#222', 0, -0.78, 0)];
+  const hleg = [part(loft([[-0.95, 0.075, 0.08], [-0.5, 0.12, 0.13, -0.04], [0, 0.18, 0.2]]), '#7a4a28'), part(box(0.15, 0.12, 0.15), '#222', 0, -0.98, 0)];
   GEO = {
     wagon: mergeGeometries(wagon), cargo: mergeGeometries(cargo), wheel: mergeGeometries(wheel),
     ox: mergeGeometries(ox), horse: mergeGeometries(horse), leg: mergeGeometries(leg), hleg: mergeGeometries(hleg),

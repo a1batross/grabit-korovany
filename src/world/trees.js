@@ -56,8 +56,10 @@ function colorize(geo, color) {
   const c = new THREE.Color(color);
   const n = geo.attributes.position.count;
   const arr = new Float32Array(n * 3);
+  const pos = geo.attributes.position, normal = geo.attributes.normal;
   for (let k = 0; k < n; k++) {
-    const shade = 0.85 + Math.random() * 0.3;
+    // Stable surface shading, also used when rendering the distant impostor.
+    const shade = 0.87 + normal.getY(k) * 0.08 + Math.sin(pos.getX(k) * 0.9 + pos.getZ(k) * 1.3 + pos.getY(k) * 0.7) * 0.045;
     arr[k * 3] = c.r * shade; arr[k * 3 + 1] = c.g * shade; arr[k * 3 + 2] = c.b * shade;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
@@ -65,14 +67,42 @@ function colorize(geo, color) {
 }
 const ng = g => (g.index ? g.toNonIndexed() : g);
 
+function branch(from, to, radius, color) {
+  const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to), d = b.clone().sub(a);
+  const g = new THREE.CylinderGeometry(radius * 0.36, radius, d.length(), 5);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()));
+  g.translate(...a.add(b).multiplyScalar(0.5).toArray());
+  return colorize(ng(g), color);
+}
+function crown(x, y, z, r, color, seed) {
+  const g = ng(new THREE.IcosahedronGeometry(r, 1)), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const px = p.getX(i), py = p.getY(i), pz = p.getZ(i);
+    const k = 1 + Math.sin(px * 2 + pz * 1.7 + seed) * 0.1;
+    p.setXYZ(i, px * k, py * 0.82, pz * k);
+  }
+  g.computeVertexNormals(); g.translate(x, y, z);
+  return colorize(g, color);
+}
+
 function makePine() {
   const parts = [];
   const trunk = new THREE.CylinderGeometry(0.25, 0.45, 4, 6); trunk.translate(0, 2, 0);
   parts.push(colorize(ng(trunk), '#5a3d24'));
   for (let i = 0; i < 4; i++) {
     const r = 3.2 - i * 0.65, h = 4 - i * 0.5;
-    const cone = new THREE.ConeGeometry(r, h, 8); cone.translate(0, 3 + i * 2.1 + h / 2, 0);
+    const cone = ng(new THREE.ConeGeometry(r, h, 9)), p = cone.attributes.position;
+    for (let k = 0; k < p.count; k++) {
+      const x = p.getX(k), z = p.getZ(k), y = p.getY(k);
+      const f = 0.92 + Math.sin(Math.atan2(z, x) * 3 + i * 1.8) * 0.08;
+      p.setXYZ(k, x * f + Math.sin(i * 2.4) * 0.2, y + Math.sin(x + z) * 0.13, z * f);
+    }
+    cone.computeVertexNormals(); cone.translate(0, 3 + i * 2.1 + h / 2, 0);
     parts.push(colorize(ng(cone), i % 2 ? '#1f4d2a' : '#245a30'));
+  }
+  for (let i = 0; i < 4; i++) {
+    const a = i * 2.4;
+    parts.push(branch([0, 3.3 + i * 0.55, 0], [Math.cos(a) * 2, 3.8 + i * 0.55, Math.sin(a) * 2], 0.12, '#5a3d24'));
   }
   return mergeGeometries(parts);
 }
@@ -80,10 +110,10 @@ function makeOak() {
   const parts = [];
   const trunk = new THREE.CylinderGeometry(0.35, 0.6, 5, 7); trunk.translate(0, 2.5, 0);
   parts.push(colorize(ng(trunk), '#4e3622'));
+  for (const end of [[1.8, 6.2, 0.6], [-1.6, 6.4, -0.8], [0.4, 6, -1.9]]) parts.push(branch([0, 3.4, 0], end, 0.25, '#4e3622'));
   const blobs = [[0, 7, 0, 3.2], [1.8, 6.2, 0.6, 2.3], [-1.6, 6.4, -0.8, 2.4], [0.4, 6, -1.9, 2.1], [-0.5, 8.6, 0.6, 2.0]];
   for (const [x, y, z, r] of blobs) {
-    const s = new THREE.IcosahedronGeometry(r, 1); s.translate(x, y, z);
-    parts.push(colorize(ng(s), '#3d7a2c'));
+    parts.push(crown(x, y, z, r, '#3d7a2c', x * 3 + z));
   }
   return mergeGeometries(parts);
 }
@@ -91,10 +121,15 @@ function makeBirch() {
   const parts = [];
   const trunk = new THREE.CylinderGeometry(0.18, 0.28, 7, 6); trunk.translate(0, 3.5, 0);
   parts.push(colorize(ng(trunk), '#e8e4da'));
+  for (let i = 0; i < 8; i++) {
+    const y = 0.65 + i * 0.73, r = 0.28 - y / 7 * 0.1 + 0.004;
+    const bark = new THREE.CylinderGeometry(r, r + 0.002, 0.055 + i % 3 * 0.025, 5, 1, true, i * 2.3, 1.7);
+    bark.translate(0, y, 0); parts.push(colorize(ng(bark), '#4c4b43'));
+  }
+  for (const end of [[0.9, 6.3, 0.3], [-0.8, 6.6, -0.4]]) parts.push(branch([0, 4.6, 0], end, 0.11, '#d5d0bc'));
   const blobs = [[0, 7.5, 0, 2.0], [0.9, 6.3, 0.3, 1.5], [-0.8, 6.6, -0.4, 1.6]];
   for (const [x, y, z, r] of blobs) {
-    const s = new THREE.IcosahedronGeometry(r, 1); s.translate(x, y, z);
-    parts.push(colorize(ng(s), '#6a9a3a'));
+    parts.push(crown(x, y, z, r, '#6a9a3a', y));
   }
   return mergeGeometries(parts);
 }
