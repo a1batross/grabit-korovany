@@ -9,7 +9,7 @@ export const game = {
   renderer: null,
   scene: null,
   camera: null,
-  clock: new THREE.Clock(),
+  clock: new THREE.Timer(),
   time: 0,          // seconds since session start (real, unpaused)
   worldTime: 8 * 60, // in-game minutes since day 0 00:00 (starts 08:00)
   dayLength: 24 * 60, // in-game minutes in a day

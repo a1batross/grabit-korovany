@@ -113,7 +113,7 @@ export class Actor {
 
     // Dismemberment: Kirill wants arms chopped, eyes gouged and legs severed
     const cutChance = (opts.cut ?? 0) * Math.min(1, dmg / 30) * 0.45 * (game.goreMul ?? 1);
-    if ((part.startsWith('arm') || part.startsWith('leg')) && this.limbs[part] === 'ok' && Math.random() < cutChance) {
+    if ((part.startsWith('arm') || part.startsWith('leg')) && this.limbs[part] !== 'lost' && Math.random() < cutChance) {
       this.sever(part, attacker, opts.dir);
     } else if (part === 'head') {
       const eyeChance = (opts.pierce ?? 0) * 0.25 * (game.goreMul ?? 1);
@@ -135,8 +135,17 @@ export class Actor {
       if (this.headless) return;
       this.headless = true;
     } else {
-      if (this.limbs[part] === 'prosthetic') this.body.removeProsthetic(part);
+      const wasProsthetic = this.limbs[part] === 'prosthetic';
       this.limbs[part] = 'lost';
+      if (wasProsthetic) {
+        // knocking off a prosthetic doesn't bleed
+        const obj = this.body.detach(part, game.scene);
+        if (part === 'armR') this.body.setWeapon(null);
+        if (part.startsWith('leg')) this.body.setWheelchair(this.moveMode === 'wheelchair');
+        game.bus.emit('actor:dismember', { actor: this, part, attacker, object: obj, dir, prosthetic: true });
+        if (this.isPlayer) game.bus.emit('player:injury', { part, kind: 'prosthetic-lost' });
+        return;
+      }
     }
     const obj = this.body.detach(part, game.scene);
     if (part.startsWith('arm')) this.bleed += this.isPlayer ? 1.1 : 2.2;

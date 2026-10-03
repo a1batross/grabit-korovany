@@ -38,6 +38,17 @@ export function initHud() {
     <div class="gold" id="gold"></div>`;
   for (const id of ['vign', 'fbadge', 'zone', 'time', 'cstrip', 'cpois', 'bstat', 'bleed', 'hpb', 'hpt', 'stb', 'stt', 'gold']) els[id] = $(id);
   game.bus.on('notify', ({ text, kind }) => notify(text, kind));
+  // hit marker
+  const ch = $('crosshair');
+  game.bus.on('actor:hit', ({ attacker }) => {
+    if (attacker !== game.player) return;
+    ch.style.color = '#ff3030'; ch.style.transform = 'translate(-50%,-50%) scale(1.6)';
+    clearTimeout(ch._t); ch._t = setTimeout(() => { ch.style.color = ''; ch.style.transform = ''; }, 160);
+  });
+  game.bus.on('block', ({ attacker }) => {
+    if (attacker !== game.player) return;
+    ch.style.color = '#ffd040'; clearTimeout(ch._t); ch._t = setTimeout(() => { ch.style.color = ''; }, 200);
+  });
   game.addSystem({ name: 'hud', order: 200, update: updateHud });
 }
 

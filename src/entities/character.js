@@ -192,7 +192,8 @@ export class Body {
   detach(part, scene) {
     if (part === 'eyeL' || part === 'eyeR') {
       const e = this.parts[part];
-      if (!e.parent) return null;
+      if (this.prosthetics[part]) { this.removeProsthetic(part); const so = this[part + 'Socket']; if (so) so.visible = true; return null; }
+      if (!e.parent || !this.isOwn(e)) return null;
       const parent = e.parent;
       scene.attach(e);
       const socket = mesh(sph(0.03), stumpMat(), e.userData.ox ?? 0, 0, 0);
@@ -202,8 +203,17 @@ export class Body {
       this[part + 'Socket'] = socket;
       return e;
     }
+    // a prosthetic can be knocked off too (it flies away like a real limb)
+    const pros = this.prosthetics[part];
+    if (pros && !part.startsWith('eye')) {
+      delete this.prosthetics[part];
+      scene.attach(pros);
+      if (part === 'armR' && this.weaponMesh) this.weaponMesh = null;
+      const st = this[part + 'Stump']; if (st) st.visible = true;
+      return pros;
+    }
     const p = this.parts[part];
-    if (!p || !p.parent) return null;
+    if (!p || !p.parent || !this.isOwn(p)) return null;
     const parent = p.parent;
     const local = p.position.clone();
     scene.attach(p);

@@ -16,7 +16,7 @@ export function initEffects() {
   pVel = new Float32Array(MAX_P * 3); pLife = new Float32Array(MAX_P);
   geo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
-  points = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.09, vertexColors: true, sizeAttenuation: true }));
+  points = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.05, vertexColors: true, sizeAttenuation: true }));
   points.frustumCulled = false;
   game.scene.add(points);
   decalGeo = new THREE.CircleGeometry(1, 10); decalGeo.rotateX(-Math.PI / 2);

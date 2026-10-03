@@ -13,6 +13,20 @@ import { initHud } from './ui/hud.js';
 import { showMainMenu, showLoading, hideMenus } from './ui/menu.js';
 import { MODULES } from './modules.js';
 import { LOC } from './world/zones.js';
+import * as terrain from './world/terrain.js';
+import * as zones from './world/zones.js';
+import * as trees from './world/trees.js';
+import * as colliders from './world/colliders.js';
+import * as spawnMod from './entities/spawn.js';
+import * as actorMod from './entities/actor.js';
+import * as playerMod from './entities/player.js';
+import * as factions from './systems/factions.js';
+import * as effects from './systems/effects.js';
+import * as weapons from './entities/weapons.js';
+
+// Core modules exposed for tests/console (dynamic import() in tests can yield a different module instance under Vite HMR).
+game.lib = { THREE, terrain, zones, trees, colliders, spawn: spawnMod.spawn, PRESETS: spawnMod.PRESETS, actor: actorMod,
+  player: playerMod, factions, effects, weapons, modules: MODULES, input };
 
 function initRenderer() {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -88,6 +102,7 @@ game.simulate = (seconds, dt = 1 / 30) => {
 
 function loop() {
   requestAnimationFrame(loop);
+  game.clock.update();
   let dt = Math.min(game.clock.getDelta(), 0.05);
   game.time += dt;
   if (game.paused || game.uiOpen || !game.started) {
