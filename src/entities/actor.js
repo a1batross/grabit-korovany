@@ -41,7 +41,7 @@ export class Actor {
     this.grudges = new Set();
     this.disguisedAs = o.disguisedAs ?? null; this.revealed = false;
     this.limbs = { armL: 'ok', armR: 'ok', legL: 'ok', legR: 'ok', eyeL: 'ok', eyeR: 'ok' };
-    this.bleed = 0;                         // hp per second
+    this.wounds = {};                       // part -> bleeding rate (hp/s); `bleed` is their sum
     this.hasWheelchair = false; this.useWheelchair = true;
     this.speedMul = o.speedMul ?? 1;
     this.intent = { mx: 0, mz: 0, run: false, jump: false, attack: false, block: false, yaw: null };
@@ -148,9 +148,8 @@ export class Actor {
       }
     }
     const obj = this.body.detach(part, game.scene);
-    if (part.startsWith('arm')) this.bleed += this.isPlayer ? 1.1 : 2.2;
-    else if (part.startsWith('leg')) this.bleed += this.isPlayer ? 1.4 : 2.8;
-    else if (part.startsWith('eye')) this.bleed += 0.15;
+    const rate = this.woundRate(part);
+    if (rate > 0) this.wounds[part] = (this.wounds[part] ?? 0) + rate;
     if (part === 'armR') { this.body.setWeapon(null); }
     if (part === 'armL' && this.shield) this.shield = false;
     if (part.startsWith('leg') && this.moveMode === 'wheelchair') this.body.setWheelchair(true);
@@ -158,14 +157,34 @@ export class Actor {
     if (this.isPlayer) game.bus.emit('player:injury', { part, kind: 'lost' });
   }
 
-  stopBleeding() { this.bleed = 0; }
+  // Bleeding is tracked per wound so treating one limb doesn't stop another from bleeding.
+  woundRate(part) {
+    if (part.startsWith('arm')) return this.isPlayer ? 1.1 : 2.2;
+    if (part.startsWith('leg')) return this.isPlayer ? 1.4 : 2.8;
+    if (part.startsWith('eye')) return 0.15;
+    return 0;
+  }
+  get bleed() { let s = 0; for (const k in this.wounds) s += this.wounds[k]; return s; }
+  // Setting the total (herbs, save restore...): 0 clears everything, otherwise the amount is
+  // spread over the current wounds (or over untreated lost limbs, e.g. right after loading a save).
+  set bleed(v) {
+    v = Math.max(0, v || 0);
+    const cur = this.bleed;
+    if (v === 0) { this.wounds = {}; return; }
+    if (cur > 0) { const k = v / cur; for (const p in this.wounds) this.wounds[p] *= k; return; }
+    const lost = Object.keys(this.limbs ?? {}).filter(p => this.limbs[p] === 'lost');
+    const base = lost.reduce((a, p) => a + this.woundRate(p), 0);
+    if (base > 0) for (const p of lost) this.wounds[p] = v * this.woundRate(p) / base;
+    else this.wounds.misc = v;
+  }
+  stopBleeding(part) { if (part) delete this.wounds[part]; else this.wounds = {}; }
 
   fitProsthetic(part) {
     if (this.limbs[part] !== 'lost') return false;
     this.limbs[part] = 'prosthetic';
     this.body.addProsthetic(part);
     if (part === 'armR') this.body.setWeapon(null);
-    this.bleed = Math.max(0, this.bleed - (part.startsWith('arm') ? 2.2 : part.startsWith('leg') ? 2.8 : 0.15));
+    delete this.wounds[part]; // only this limb's wound is treated
     if (this.legsOk === 2) this.body.setWheelchair(false);
     return true;
   }
@@ -179,7 +198,7 @@ export class Actor {
 
   die(killer, cause = 'wound') {
     if (!this.alive) return;
-    this.alive = false; this.hp = 0; this.bleed = 0;
+    this.alive = false; this.hp = 0; this.wounds = {};
     this.deathTime = game.time; this.deathCause = cause;
     this.attackT = -1; this.blocking = false;
     this.body.setWheelchair(false);
