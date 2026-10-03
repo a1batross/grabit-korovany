@@ -9,6 +9,7 @@ import { updateSquads, clearSquads, squads } from './gameplay/squad.js';
 import { caravans, initCaravans, initialCaravans, updateCaravans, clearCaravans, spawnCaravan, ROUTES, saveCaravans, loadCaravans } from './gameplay/caravans.js';
 import { raids, initRaids, updateRaids, resetRaids, launchRaid, triggerRaid, spawnSpy, revealSpy, spies, saveRaids, loadRaids } from './gameplay/raids.js';
 import { G, RANKS, initGuard, startGuard, updateGuard, reprimand, declareDeserter, forceOrder, saveGuard, loadGuard } from './gameplay/guard.js';
+import { updateProgress } from './gameplay/progress.js';
 import { E, initElves, startElves, updateElves, updateObjectives, saveElves, loadElves, forceTask } from './gameplay/elves.js';
 import { armyMembers, groupCounts, groupOrders, commandArmy, recruit, spawnVillainArmy, setPlayerSquadSize, updateArmy, resetArmy, applyOrder, saveArmy, loadArmy } from './gameplay/army.js';
 import { initVictory, startVictory, updateVictory, showVictory } from './gameplay/victory.js';
@@ -45,6 +46,7 @@ export function init() {
       updateVictory(dt);
       updateBubbles(dt);
       updateBanner(dt);
+      updateProgress(dt);
     },
   });
   // debug / test API

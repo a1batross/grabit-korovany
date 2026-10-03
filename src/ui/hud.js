@@ -11,6 +11,8 @@ let hud, els = {};
 game.hudStatus = new Map();
 // Points of interest shown on the compass: game.compassPois.set(key, { x, z, label, color })
 game.compassPois = new Map();
+// Progress bars for things that take real time: game.hudProgress.set(key, { label, frac 0..1, color?, text? })
+game.hudProgress = new Map();
 
 export function notify(text, kind = '') {
   const box = $('notify');
@@ -26,7 +28,7 @@ export function initHud() {
   hud = $('hud');
   hud.innerHTML = `
     <div class="damage-vignette" id="vign"></div>
-    <div class="faction-badge" id="fbadge"></div>
+    <div class="faction-badge"><div id="fbadge"></div><div id="qbars"></div></div>
     <div class="topinfo"><div class="zone" id="zone"></div><div class="time" id="time"></div>
       <div class="compass"><div class="strip" id="cstrip"></div><div id="cpois"></div><div class="mark"></div></div></div>
     <div class="body-status" id="bstat"></div>
@@ -36,7 +38,7 @@ export function initHud() {
       <div class="bar st"><i id="stb"></i><span id="stt"></span></div>
     </div>
     <div class="gold" id="gold"></div>`;
-  for (const id of ['vign', 'fbadge', 'zone', 'time', 'cstrip', 'cpois', 'bstat', 'bleed', 'hpb', 'hpt', 'stb', 'stt', 'gold']) els[id] = $(id);
+  for (const id of ['vign', 'fbadge', 'zone', 'time', 'cstrip', 'cpois', 'bstat', 'bleed', 'hpb', 'hpt', 'stb', 'stt', 'gold', 'qbars']) els[id] = $(id);
   game.bus.on('notify', ({ text, kind }) => notify(text, kind));
   // hit marker
   const ch = $('crosshair');
@@ -124,4 +126,12 @@ function updateHud(dt) {
   let badge = `<div style="color:${FACTIONS[game.playerFaction]?.color}">⚑ ${FACTIONS[game.playerFaction]?.name ?? ''}${game.rank ? ' — ' + game.rank : ''}</div>`;
   for (const v of game.hudStatus.values()) badge += `<div>${v}</div>`;
   els.fbadge.innerHTML = badge;
+
+  let bars = '';
+  for (const b of game.hudProgress.values()) {
+    const pct = Math.round(Math.max(0, Math.min(1, b.frac)) * 100);
+    bars += `<div class="qbar"><div class="qlabel"><span>${b.label}</span><span>${b.text ?? pct + '%'}</span></div>
+      <div class="qtrack"><i style="width:${pct}%;background:${b.color ?? 'var(--gold)'}"></i></div></div>`;
+  }
+  els.qbars.innerHTML = bars;
 }

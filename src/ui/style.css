@@ -81,3 +81,15 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #000; font-f
 .parchment h2 { color: #5a1a0a; }
 .quote { font-style: italic; opacity: 0.8; font-size: 13px; margin-top: 18px; max-width: 700px; text-align: center; }
 .footer-note { position: absolute; bottom: 10px; font-size: 12px; opacity: 0.6; }
+
+/* quest / timer progress bars (top-left, under the faction status) */
+.qbar { margin-top: 8px; width: 300px; }
+.qlabel { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; text-shadow: 0 0 3px #000; }
+.qlabel span:last-child { color: #ddd; white-space: nowrap; }
+.qtrack { height: 8px; background: rgba(0,0,0,0.55); border: 1px solid rgba(0,0,0,0.8); border-radius: 2px; overflow: hidden; margin-top: 2px; }
+.qtrack i { display: block; height: 100%; transition: width 0.2s linear; box-shadow: 0 0 6px rgba(255,255,255,0.25) inset; }
+
+/* minimap (bottom-right, above the gold counter) */
+#minimap { position: absolute; right: 20px; bottom: 70px; width: 200px; height: 200px; border-radius: 50%;
+  border: 3px solid #8a6a3a; box-shadow: 0 0 0 1px #000, 0 4px 18px rgba(0,0,0,0.6); background: #000; }
+#minimap-n { position: absolute; font: bold 13px var(--font); color: #ffe9a8; text-shadow: 0 0 3px #000, 0 0 2px #000; transform: translate(-50%, -50%); }

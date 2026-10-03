@@ -78,7 +78,7 @@ Use `git` only to inspect (`git diff`, `git status`); do NOT commit, stash, rese
   Total draw calls should stay reasonable (< ~600 at any view).
 - Russian UI text. Comments in English.
 - Keys already taken: WASD, Shift, Space, LMB, RMB, E (interact), V (camera), X (wheelchair), I/Tab (inventory), M (map),
-  J (journal), C (command menu), F5/F9 (quick save/load), Esc (pause). Coordinate via this table if you need others.
+  J (journal), N (minimap zoom), C (command menu), F5/F9 (quick save/load), Esc (pause). Coordinate via this table if you need others.
 - When a modal UI opens: set `game.uiOpen = true` and call `input.unlock()`; on close set `game.uiOpen = false` and `input.lock()`.
   Render modals into `#modal-root`.
 - Save/load: the save system serialises the player + calls every module's `serialize()`. Loading = page reload with the

@@ -117,3 +117,6 @@ export function segmentBlocked(ax, ay, az, bx, by, bz, step = 2) {
   }
   return false;
 }
+
+// Iterate registered static colliders (used by the minimap to draw building footprints).
+export function forEachCollider(fn) { for (const b of boxes) fn(b); for (const c of circles) fn(c); }

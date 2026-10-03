@@ -10,6 +10,7 @@ import { initCombat } from './systems/combat.js';
 import { initActorSystem, spawn } from './entities/spawn.js';
 import { initPlayerControl, cam } from './entities/player.js';
 import { initHud } from './ui/hud.js';
+import { initMinimap } from './ui/minimap.js';
 import { showMainMenu, showLoading, hideMenus } from './ui/menu.js';
 import { MODULES } from './modules.js';
 import { LOC } from './world/zones.js';
@@ -67,6 +68,7 @@ async function buildWorld() {
   initActorSystem();
   initPlayerControl();
   initHud();
+  initMinimap();
   for (const m of MODULES) if (m.init) await m.init();
 }
 

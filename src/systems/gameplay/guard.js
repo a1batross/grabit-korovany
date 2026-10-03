@@ -139,6 +139,7 @@ function orderPost(p0 = {}) {
     save: () => ({ i, dur, held, away }),
     poi: () => ({ x: p.x, z: p.z }),
     progress: () => held > 0 ? `На посту: ${fmtTime(held)} / ${fmtTime(dur)}` : `Идите на пост (${Math.round(playerDist(p))} м)`,
+    frac: () => held / dur, timeLeft: () => fmtTime(Math.max(0, dur - held)),
     update(dt) {
       const d = playerDist(p);
       if (d < 7) { held += dt; away = 0; warned = false; }

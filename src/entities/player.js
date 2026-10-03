@@ -127,6 +127,8 @@ function updateCamera(dt) {
       d *= 0.75; cx = tx - dir.x * d; cy = ty - dir.y * d; cz = tz - dir.z * d;
     }
     cy = Math.max(cy, groundAt(cx, cz) + 0.4);
+    // camera squeezed against a wall: hide our own body instead of filling the screen with it
+    if (d < 1.3) p.body.root.visible = false;
     camera.position.set(cx + sx, cy + sy, cz);
     camera.lookAt(tx + dir.x * 10, ty + dir.y * 10, tz + dir.z * 10);
   }
