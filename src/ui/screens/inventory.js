@@ -12,7 +12,7 @@ const FILTERS = [
   ['med', 'Лечение', ['medical', 'prosthetic', 'food']],
   ['misc', 'Товары и разное', ['trade', 'misc']],
 ];
-const FIT_LABEL = { armL: 'На левую', armR: 'На правую', legL: 'На левую', legR: 'На правую', eyeL: 'В левый', eyeR: 'В правый' };
+const FIT_LABEL = { armL: 'На левую', armR: 'На правую', legL: 'На левую', legR: 'На правую', eyeL: 'Левый глаз', eyeR: 'Правый глаз' };
 const PROS_ITEM = { arm: 'prosthetic_arm', leg: 'prosthetic_leg', eye: 'glass_eye' };
 
 export function toggleInventory() {
@@ -28,7 +28,7 @@ function onAct(act, d) {
   else if (act === 'drop') {
     const it = ITEMS[d.id];
     if (it.id === 'kirill_letter') game.bus.emit('notify', { text: 'Рука не поднимается выбросить письмо Кирилла.' });
-    else if (game.inventory.remove(d.id, 1)) game.bus.emit('notify', { text: `Вы выбросили: ${it.name}. Лучше бы продали.` });
+    else if (game.inventory.remove(d.id, 1)) game.bus.emit('notify', { text: `Выброшено: «${it.name}». Лучше бы продали.` });
   } else if (act === 'fit') {
     const kind = d.part.slice(0, 3);
     useItem(PROS_ITEM[kind], { part: d.part });
@@ -109,7 +109,7 @@ function statusLines(p) {
   if (p.bleed > 0) s += `<div class="bleed">🩸 Кровотечение −${p.bleed.toFixed(1)}/с — нужен бинт!</div>`;
   for (const part of ['armL', 'armR', 'legL', 'legR', 'eyeL', 'eyeR']) {
     const st = p.limbs[part];
-    if (st === 'lost') s += `<div class="lost">✖ Нет: ${PART_NAMES[part]}</div>`;
+    if (st === 'lost') s += `<div class="lost">✖ Отсутствует: ${PART_NAMES[part]}</div>`;
     else if (st === 'prosthetic') s += `<div class="pros">⚙ Протез: ${PART_NAMES[part]}</div>`;
   }
   if (!s) s = '<div>Руки, ноги, глаза — всё на месте. Пока что.</div>';
@@ -130,7 +130,7 @@ function actionsFor(id) {
   else if (it.cat === 'prosthetic' && it.part) {
     const parts = lostPartsFor(it.part);
     main = parts.length ? parts.map(pt => `<button class="kv-btn pri" data-act="use" data-id="${id}" data-part="${pt}" title="Поставить самому (больно!)">${FIT_LABEL[pt]}</button>`).join('')
-      : `<button class="kv-btn" disabled>Не нужен</button>`;
+      : `<button class="kv-btn" disabled>Не требуется</button>`;
   } else if (id === 'wheelchair') main = `<button class="kv-btn pri" data-act="use" data-id="${id}" ${p.hasWheelchair ? 'disabled' : ''}>Сесть</button>`;
   else if (['medical', 'food'].includes(it.cat)) main = `<button class="kv-btn pri" data-act="use" data-id="${id}">${it.cat === 'food' ? (id === 'wine' ? 'Выпить' : 'Съесть') : 'Применить'}</button>`;
   else if (it.cat === 'misc') main = `<button class="kv-btn pri" data-act="use" data-id="${id}">${id === 'kirill_letter' ? 'Читать' : id === 'cardboard_box' ? 'Залезть' : 'Использовать'}</button>`;

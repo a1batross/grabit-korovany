@@ -22,7 +22,7 @@ export function canCommand() {
   if (pf === 'villain') return [true, ''];
   if (pf === 'guard') {
     if (S.deserter) return [false, 'Дезертирам никто не подчиняется.'];
-    if (S.rankIdx < 2) return [false, 'Командовать отрядом можно со звания Сержант. Слушайтесь командира!'];
+    if (S.rankIdx < 2) return [false, 'Командовать отрядом можно со звания сержанта. Слушайтесь командира!'];
   }
   if (!armyMembers().length) return [false, pf === 'elves' ? 'У вас пока нет отряда партизан — выполняйте задания вождя.' : 'У вас нет солдат.'];
   return [true, ''];
@@ -44,7 +44,7 @@ function render() {
   const total = armyMembers().length;
   const rows = groups.map(g => `<label style="display:flex;align-items:center;gap:10px;padding:5px 8px;border-bottom:1px solid rgba(232,192,96,.2);cursor:pointer">
       <input type="checkbox" data-g="${g}" ${selected.has(g) ? 'checked' : ''}>
-      <b style="min-width:150px">${g}. ${groupName(g)}</b><span style="min-width:90px">${counts[g]} воинов</span>
+      <b style="min-width:150px">${g}. ${groupName(g)}</b><span style="min-width:90px">Воинов: ${counts[g]}</span>
       <small style="opacity:.8">${orderLabel(groupOrders[g])}</small></label>`).join('');
   const btns = orders.map((o, i) => `<button class="btn small" data-o="${o}" style="min-width:190px">${i + 1}. ${orderLabel(o)}</button>`).join('');
   const rec = pf === 'villain' ? `<h3 style="margin:14px 0 6px;color:var(--gold)">Вербовка ${nearRecruit ? '' : '<small style="opacity:.7">(подойдите к вербовщику во дворе форта)</small>'}</h3>

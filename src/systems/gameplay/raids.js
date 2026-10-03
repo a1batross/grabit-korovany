@@ -163,7 +163,7 @@ function endRaid(raid, result) {
     for (const m of raid.members) if (m.alive) { m.ai.setOrder({ type: 'goto', x: raid.squad?.route?.[0]?.[0] ?? m.pos.x + 200, z: raid.squad?.route?.[0]?.[1] ?? m.pos.z, r: 8, run: true }); m.transient = true; }
   } else {
     if (T.owner === pf && !raid.o.quiet) { say(`${ATTACKER_NAMES[raid.attacker]} разорили ${T.name}!`, 'bad'); game.journal.add(`${ATTACKER_NAMES[raid.attacker]} разорили ${T.name}.`); }
-    else if (raid.attacker === pf && raid.o.playerSide && !raid.cancelled) { banner('НАБЕГ УДАЛСЯ!', `${T.name} разорен(а)!`); }
+    else if (raid.attacker === pf && raid.o.playerSide && !raid.cancelled) { banner('НАБЕГ УДАЛСЯ!', `Разорили ${T.name}!`); }
   }
   game.bus.emit('raid:end', { raid, result: raid.result, playerNear });
   raid.o.onEnd?.(raid.result, raid);

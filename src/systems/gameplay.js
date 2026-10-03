@@ -134,5 +134,5 @@ export function deserialize(data) {
     if (pf === 'guard' && !S.deserter) { if (S.tutorialDone) loadGuard({ order: null }); setPlayerSquadSize([0, 0, 3, 5, 7][S.rankIdx] ?? 0); }
     if (pf === 'elves') { setPlayerSquadSize(S.tasksDone >= 6 ? 7 : S.tasksDone >= 4 ? 5 : S.tasksDone >= 2 ? 3 : 0); updateObjectives(); }
   }
-  if (pf === 'villain') game.hudStatus.set('order', `<span class="order">Армия: ${armyMembers().length} воинов</span>`);
+  if (pf === 'villain') game.hudStatus.set('order', `<span class="order">Воинов в армии: ${armyMembers().length}</span>`);
 }

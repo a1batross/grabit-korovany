@@ -5,7 +5,7 @@ import { SLOTS, SLOT_NAMES, slotMeta, saveTo, loadFrom, deleteSlot } from '../..
 import { openModal, rerender, closeModal, esc } from './modal.js';
 
 let mode = 'save', editing = null, confirmDel = null;
-const PART_SHORT = { armL: 'л.рука', armR: 'п.рука', legL: 'л.нога', legR: 'п.нога', eyeL: 'л.глаз', eyeR: 'п.глаз' };
+const PART_SHORT = { armL: 'л. рука', armR: 'п. рука', legL: 'л. нога', legR: 'п. нога', eyeL: 'л. глаз', eyeR: 'п. глаз' };
 
 export function openSaveUI(m) {
   mode = m; editing = null; confirmDel = null;

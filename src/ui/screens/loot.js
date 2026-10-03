@@ -51,9 +51,9 @@ function render(body) {
       <div class="kv-price">${it.price ? '~' + it.price + ' зол.' : ''}</div>
       <div class="kv-acts"><button class="kv-btn pri" data-act="take" data-id="${id}">Взять</button></div></div>`;
   }
-  const cause = { blood: 'истёк кровью', head: 'без головы', fall: 'разбился', wound: 'погиб в бою' }[actor.deathCause] ?? 'мёртв';
+  const cause = { blood: 'кровопотеря', head: 'обезглавливание', fall: 'падение', wound: 'боевые ранения' }[actor.deathCause] ?? 'неизвестна';
   body.innerHTML = `<div class="kv-parch">
-    <div class="kv-desc" style="font-style:italic;margin-bottom:6px">${esc(actor.name)} — ${cause}. ${st.epitaph}</div>
+    <div class="kv-desc" style="font-style:italic;margin-bottom:6px">${esc(actor.name)}. Причина смерти: ${cause}. ${st.epitaph}</div>
     <div class="kv-list kv-scroll" data-scroll="loot">${rows || '<div class="kv-empty">Пусто. Кто-то обыскал его до вас.</div>'}</div></div>
     <div class="kv-foot"><span class="kv-keys"><b>E</b> / <b>Пробел</b> — взять всё · <b>Esc</b> — уйти</span>
     <span><button class="kv-btn pri big" data-act="all">Взять всё</button> <button class="kv-btn big" data-act="close">Уйти</button></span></div>`;

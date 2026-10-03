@@ -116,7 +116,7 @@ function updateHud(dt) {
   let bs = '';
   for (const part of ['armL', 'armR', 'legL', 'legR', 'eyeL', 'eyeR']) {
     const st = p.limbs[part];
-    if (st === 'lost') bs += `<div class="lost">✖ Нет: ${PART_NAMES[part]}</div>`;
+    if (st === 'lost') bs += `<div class="lost">✖ Отсутствует: ${PART_NAMES[part]}</div>`;
     else if (st === 'prosthetic') bs += `<div class="pros">⚙ Протез: ${PART_NAMES[part]}</div>`;
   }
   if (p.moveMode === 'crawl') bs += `<div class="lost">Вы ползёте${p.hasWheelchair ? ' (X — сесть в коляску)' : ' — купите коляску или протез!'}</div>`;

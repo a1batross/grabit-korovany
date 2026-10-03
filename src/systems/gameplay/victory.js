@@ -7,7 +7,7 @@ import { armyMembers } from './army.js';
 import { updateObjectives } from './elves.js';
 
 const VICTORIES = {
-  villain: { title: 'Злой захватил дворец!', text: 'Император пал. Над дворцом развевается чёрное знамя. Имя злому так и не придумали, но теперь его знает каждый.' },
+  villain: { title: 'Злой захватил дворец!', text: 'Император пал. Над дворцом развевается чёрное знамя. Имя Злому так и не придумали, но теперь его знает каждый.' },
   guard: { title: 'Злой повержен!', text: 'Вы убили Злого в его старом форте. Император лично вешает вам орден. Командир плачет от гордости.' },
   elvesVillain: { title: 'Лес свободен! Злой повержен!', text: 'Эльфы празднуют в деревянных домиках. Больше никто не набигает с гор.' },
   elvesEmperor: { title: 'Лес свободен! Император пал!', text: 'Солдаты дворца больше не набигают на лес. Эльфы грабят корованы спокойно.' },
@@ -67,7 +67,7 @@ export function updateVictory(dt) {
   if (game.playerFaction === 'villain') {
     const n = armyMembers().length;
     game.journal.setObjective('villain:army', `Собрать армию из 25 воинов (${Math.min(25, n)}/25)`, n >= 25 || game.journal.objectives.get('villain:army')?.done);
-    game.hudStatus.set('order', `<span class="order">Армия: ${n} воинов</span> <small>(C — командовать)</small>`);
+    game.hudStatus.set('order', `<span class="order">Воинов в армии: ${n}</span> <small>(C — командовать)</small>`);
     if (!S.bossDead.emperor && game.emperor?.alive && playerDist(game.emperor.pos) < 400) game.compassPois.set('emperor', { x: game.emperor.pos.x, z: game.emperor.pos.z, label: '♛', color: '#ffd84a' });
     else game.compassPois.delete('emperor');
   }
@@ -77,7 +77,7 @@ export function updateVictory(dt) {
 
 export function startVictory(faction) {
   if (faction === 'villain') {
-    game.journal.setObjective('villain:palace', 'Захватить дворец: убить Императора (приказ войскам — C → «В атаку на дворец!»)');
+    game.journal.setObjective('villain:palace', 'Захватить дворец: убить императора (приказ войскам — C → «В атаку на дворец!»)');
     game.journal.setObjective('villain:army', 'Собрать армию из 25 воинов (вербовщик в форте)');
   }
 }

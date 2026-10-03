@@ -22,14 +22,14 @@ export const caravans = [];
 // ---------- routes ----------
 const rev = a => [...a].reverse();
 export const ROUTES = {
-  'town>palace': { pts: ROADS.townPalace, from: 'Слободы', to: 'дворец' },
+  'town>palace': { pts: ROADS.townPalace, from: 'Слободы', to: 'дворец', toPrep: 'во' },
   'palace>town': { pts: rev(ROADS.townPalace), from: 'дворца', to: 'Слободу' },
-  'town>west': { pts: ROADS.townWest, from: 'Слободы', to: 'западную заставу (мимо эльфов!)' },
-  'west>town': { pts: rev(ROADS.townWest), from: 'западной заставы', to: 'Слободу (мимо эльфов!)' },
+  'town>west': { pts: ROADS.townWest, from: 'Слободы', to: 'западную заставу (мимо эльфов!)', toPrep: 'на' },
+  'west>town': { pts: rev(ROADS.townWest), from: 'западной заставы', fromPrep: 'с', to: 'Слободу (мимо эльфов!)' },
   'town>fort': { pts: ROADS.townFort, from: 'Слободы', to: 'старый форт' },
   'fort>town': { pts: rev(ROADS.townFort), from: 'старого форта', to: 'Слободу' },
   'palace>fort': { pts: ROADS.palaceFort, from: 'дворца', to: 'старый форт' },
-  'fort>palace': { pts: rev(ROADS.palaceFort), from: 'старого форта', to: 'дворец' },
+  'fort>palace': { pts: rev(ROADS.palaceFort), from: 'старого форта', to: 'дворец', toPrep: 'во' },
 };
 const MERCHANTS = ['Купец Абрам', 'Купец Садко', 'Купчиха Акулина', 'Купец Афанасий', 'Торговец Ибрагим', 'Купец Елисей'];
 export const GOODS = {
@@ -272,10 +272,10 @@ export class Caravan {
       const gold = this.gold + extraGold;
       game.addGold(gold, 'caravan');
       S.caravansRobbed = (S.caravansRobbed ?? 0) + 1;
-      banner('КОРОВАН ОГРАБЛЕН!', `+${gold} золотых${goodsTxt.length ? ' • ' + goodsTxt.join(', ') : ''}`);
+      banner('КОРОВАН ОГРАБЛЕН!', `+${gold} зол.${goodsTxt.length ? ' • ' + goodsTxt.join(', ') : ''}`);
       say(`КОРОВАН ОГРАБЛЕН! +${gold} зол. ${goodsTxt.join(', ')}`, 'good');
-      game.journal.add(`Ограблен корован купца ${this.merchantName.replace(/^(Купец|Купчиха|Торговец) /, '')} (${this.R.from} → ${this.R.to}). Добыча: ${gold} зол.${goodsTxt.length ? ', ' + goodsTxt.join(', ') : ''}.`);
-      if (this.merchant?.alive) shout(this.merchant, pick(['Караул! Ограбили!', 'Всё пропало! Товар пропал!', 'Я джва года копил на этот товар!']), { range: 40 });
+      game.journal.add(`Ограблен корован (${this.merchantName}). Маршрут: ${this.R.fromPrep ?? 'из'} ${this.R.from} ${this.R.toPrep ?? 'в'} ${this.R.to}. Добыча: ${gold} зол.${goodsTxt.length ? ', ' + goodsTxt.join(', ') + '.' : ''}`);
+      if (this.merchant?.alive) shout(this.merchant, pick(['Караул! Ограбили!', 'Всё пропало! Товар пропал!', 'Джва года копить — и всё пропало!']), { range: 40 });
     }
     game.bus.emit('caravan:robbed', { caravan: this, robber });
     if (isPlayer) { const st = stats(); st.caravansRobbed = Math.max(st.caravansRobbed ?? 0, S.caravansRobbed); }
@@ -341,7 +341,7 @@ export class Caravan {
   }
 
   arrive() {
-    if (playerDist(this.pos) < 60) say(`${this.name} благополучно прибыл в ${this.R.to.replace(/ \(.*\)/, '')}.`);
+    if (playerDist(this.pos) < 60) say(`${this.name} благополучно прибыл ${this.R.toPrep ?? 'в'} ${this.R.to.replace(/ \(.*\)/, '')}.`);
     this.dispose();
   }
 
@@ -401,7 +401,7 @@ export function updateCaravans(dt) {
         const k = pick(keys);
         const c = spawnCaravan(k, 0);
         if (game.playerFaction !== 'guard' || Math.random() < 0.5)
-          say(`Слух: ${c.name} вышел из ${ROUTES[k].from} в ${ROUTES[k].to}. Можно грабить корованы!`);
+          say(`Слух: ${c.name} вышел ${ROUTES[k].fromPrep ?? 'из'} ${ROUTES[k].from} ${ROUTES[k].toPrep ?? 'в'} ${ROUTES[k].to}. Можно грабить корованы!`);
       }
       wantCount = randInt(2, 4);
     }

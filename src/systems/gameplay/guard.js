@@ -41,7 +41,7 @@ function addMerit(n) {
   while (S.rankIdx < RANKS.length - 1 && S.merit >= MERIT_FOR[S.rankIdx + 1]) {
     setRank(S.rankIdx + 1);
     stats().promotions++;
-    banner('ПОВЫШЕНИЕ!', `Вы теперь ${RANKS[S.rankIdx]}. Жалованье повышено.`, '#e8c060');
+    banner('ПОВЫШЕНИЕ!', `Новое звание: ${RANKS[S.rankIdx]}. Жалованье повышено.`, '#e8c060');
     say(`${cmdName()}: «Поздравляю, ${RANKS[S.rankIdx].toLowerCase()}! Служи императору!»`, 'good');
     game.journal.add(`Повышен в звании: ${RANKS[S.rankIdx]}.`);
     if (SQUAD_FOR_RANK[S.rankIdx] > 0) say(`Вам выделен отряд из ${SQUAD_FOR_RANK[S.rankIdx]} стражников. C — командовать.`, 'good');
@@ -125,6 +125,9 @@ function giveOrder(o, viaCommander = false) {
   setHud();
 }
 
+// 1 секунду, 2 секунды, 5 секунд, 21 секунду, 61 секунду...
+const secondsWord = n => (n % 10 === 1 && n % 100 !== 11) ? 'секунду' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 'секунды' : 'секунд';
+
 const POST_NAMES = ['у главных ворот', 'на восточной стене', 'у казармы', 'на северной башне', 'у тронного зала', 'на южной стене', 'у конюшни', 'на западной стене', 'у колодца', 'у сокровищницы'];
 
 function orderPost(p0 = {}) {
@@ -135,7 +138,7 @@ function orderPost(p0 = {}) {
   let held = p0.held ?? 0, away = p0.away ?? 0, warned = false;
   return {
     type: 'post', title: `Стоять на посту ${POST_NAMES[i % POST_NAMES.length]}`, pay: 20, merit: 2,
-    speech: `Заступай на пост ${POST_NAMES[i % POST_NAMES.length]}! Стоять ${dur} секунд и не сходить с места!`,
+    speech: `Заступай на пост ${POST_NAMES[i % POST_NAMES.length]}! Стоять ${dur} ${secondsWord(dur)} и не сходить с места!`,
     save: () => ({ i, dur, held, away }),
     poi: () => ({ x: p.x, z: p.z }),
     progress: () => held > 0 ? `На посту: ${fmtTime(held)} / ${fmtTime(dur)}` : `Идите на пост (${Math.round(playerDist(p))} м)`,
@@ -185,7 +188,7 @@ function orderSpy(forceWhere = null, existing = null) {
     type: 'spy', title: where === 'town' ? 'Поймать шпиона в Слободе' : 'Поймать шпиона во дворце', pay: 45, merit: 4,
     speech: where === 'town'
       ? 'Донесли: в Слободе шпион Злого, переодетый крестьянином. Досматривай подозрительных (E) и прикончи гада!'
-      : 'Во дворец пробрался шпион, одет как крестьянин! Найди его, пока он не добрался до императора!',
+      : 'Во дворец пробрался шпион, переодетый крестьянином! Найди его, пока он не добрался до императора!',
     spy, save: () => ({ where, spyUid: spy.spyUid }),
     poi: () => ({ x: sq.x, z: sq.z }),
     progress: () => spy.revealed ? 'Шпион раскрыт — убейте его!' : `Досматривайте подозрительных (E) около ${where === 'town' ? 'площади Слободы' : 'двора дворца'}`,
@@ -337,10 +340,10 @@ function talkCommander() {
     return;
   }
   const next = RANKS[S.rankIdx + 1];
-  const rows = `<p><b>Звание:</b> ${RANKS[S.rankIdx]}${next ? ` (до звания «${next}»: ${Math.max(0, MERIT_FOR[S.rankIdx + 1] - S.merit)} заслуг)` : ' — высшее!'}<br>
+  const rows = `<p><b>Звание:</b> ${RANKS[S.rankIdx]}${next ? ` (до звания «${next}» осталось заслуг: ${Math.max(0, MERIT_FOR[S.rankIdx + 1] - S.merit)})` : ' — высшее!'}<br>
     <b>Выполнено приказов:</b> ${S.ordersDone} • <b>выговоров:</b> ${S.reprimands}</p>`;
   const cur = o ? `<p><b>Текущий приказ:</b> ${o.title}<br><i>«${o.speech}»</i>${o.progress ? `<br><small>${o.progress()}</small>` : ''}</p>`
-    : '<p>Приказов пока нет. «Отдыхай, но недолго.»</p>';
+    : '<p>Приказов пока нет. «Отдыхай, но недолго».</p>';
   const greeting = pick(['Смирно! Докладывай.', 'А, это ты. Ну, что там?', 'Император не любит бездельников.', 'Слушай командира — и будет тебе жалованье.']);
   dialog({
     title: cmdName(), html: `<p><i>«${greeting}»</i></p>${rows}${cur}`,
@@ -357,7 +360,7 @@ export function startGuard() {
   G.order = null; G.nextOrderT = S.t + 3; G.reprimandCd = 0;
   setRank(S.rankIdx, true);
   game.journal.setObjective('guard:obey', 'Слушаться командира (приказы — у командира во дворце, E)');
-  game.journal.setObjective('guard:rank', 'Дослужиться до звания Капитан');
+  game.journal.setObjective('guard:rank', 'Дослужиться до звания капитана');
   game.journal.setObjective('guard:villain', 'Убить Злого в его старом форте (горы на севере)');
   giveOrder(orderReport());
   setHud();

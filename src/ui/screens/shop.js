@@ -96,7 +96,7 @@ function render(body) {
       const p = ok ? sellPrice(shop, id) : 0;
       return itemRow(id, { count: game.inventory.count(id), price: p, act: 'sell', label: 'Продать', can: ok ? true : null,
         note: ok ? '' : '<span class="tag red">не берут</span>' });
-    }) : '<div class="kv-empty">Вам нечего продать. Сходите ограбьте корован.</div>';
+    }) : '<div class="kv-empty">Вам нечего продать. Сходите и ограбьте корован.</div>';
   } else {
     content = services(shop).map(s => `<div class="kv-svc ${s.joke ? 'joke' : ''}">
       <div><div class="kv-name">${esc(s.label)}</div><div class="kv-desc">${esc(s.desc)}</div></div>

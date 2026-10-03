@@ -6,7 +6,7 @@ import { WEAPONS } from '../entities/weapons.js';
 import { PART_NAMES } from '../entities/actor.js';
 
 const WEAPON_META = {
-  dagger:   { icon: '🗡️', w: 1, desc: 'Короткий, но колет прямо в глаз. Пол экрана — врагу!' },
+  dagger:   { icon: '🗡️', w: 1, desc: 'Короткий, но колет прямо в глаз. Пол-экрана — врагу!' },
   club:     { icon: '🏏', w: 3, desc: 'Дубина. Классика крестьянского фехтования.' },
   sword:    { icon: '⚔️', w: 4, desc: 'Добротный меч дворцовой ковки. Хорошо рубит руки.' },
   elfblade: { icon: '🗡️', w: 3, desc: 'Лёгкий эльфийский клинок. Звенит, как листва на ветру.' },
@@ -44,7 +44,7 @@ def('shield_guard', { name: 'Щит стражи', cat: 'shield', price: 120, we
 
 // --- consumables / medicine ---
 def('bandage', { name: 'Бинт', cat: 'medical', price: 8, weight: 0.2, icon: '🩹', desc: 'Останавливает кровотечение. Без него — истечёте кровью, как Кирилл и предупреждал.', consumable: true });
-def('herbs', { name: 'Эльфийские травы', cat: 'medical', price: 22, weight: 0.3, icon: '🌿', desc: 'Лесная медицина эльфов: +35 здоровья и ослабляет кровотечение.', consumable: true });
+def('herbs', { name: 'Эльфийские травы', cat: 'medical', price: 22, weight: 0.3, icon: '🌿', desc: 'Восстанавливают 35 единиц здоровья и ослабляют кровотечение. Лесная медицина эльфов!', consumable: true });
 def('potion_heal', { name: 'Зелье лечения', cat: 'medical', price: 45, weight: 0.5, icon: '🧪', desc: 'Красная жидкость. +70 здоровья. Вкус — как у малинового варенья с ржавчиной.', consumable: true });
 def('bread', { name: 'Хлеб', cat: 'food', price: 3, weight: 0.5, icon: '🍞', desc: 'Свежий каравай. +10 здоровья.', consumable: true });
 def('cheese', { name: 'Сыр', cat: 'food', price: 6, weight: 0.5, icon: '🧀', desc: '+15 здоровья. С дырками.', consumable: true });
@@ -62,7 +62,7 @@ def('furs', { name: 'Меха', cat: 'trade', price: 55, weight: 4, icon: '🦊'
 // --- prosthetics & mobility (Kirill: "достать или купить протез") ---
 def('prosthetic_arm', { name: 'Протез руки (крюк)', cat: 'prosthetic', price: 120, weight: 3, icon: '🪝', part: 'arm', desc: 'Деревянная рука с железным крюком. Крюком можно и колоть. Арр!' });
 def('prosthetic_leg', { name: 'Деревянная нога', cat: 'prosthetic', price: 110, weight: 4, icon: '🦿', part: 'leg', desc: 'Самое хорошее — поставить протез! Будете слегка хромать.' });
-def('glass_eye', { name: 'Волшебный стеклянный глаз', cat: 'prosthetic', price: 160, weight: 0.1, icon: '🔮', part: 'eye', desc: 'Светится голубым и возвращает зрение на пол экрана.' });
+def('glass_eye', { name: 'Волшебный стеклянный глаз', cat: 'prosthetic', price: 160, weight: 0.1, icon: '🔮', part: 'eye', desc: 'Светится голубым и возвращает зрение на пол-экрана.' });
 def('wheelchair', { name: 'Коляска', cat: 'prosthetic', price: 90, weight: 12, icon: '♿', desc: 'Для тех, кто без ноги. Катайтесь! (X — сесть/слезть)' });
 
 // --- misc / easter eggs ---
@@ -144,7 +144,7 @@ export function equip(id, silent = false) {
   }
   if (it?.cat === 'armor') {
     e.armor = id; p.armor = it.armor;
-    if (!silent) say(`Вы надели: ${it.name} (защита ${Math.round(it.armor * 100)}%)`);
+    if (!silent) say(`Надето: «${it.name}» (защита ${Math.round(it.armor * 100)}%)`);
     return true;
   }
   if (it?.cat === 'shield') {
@@ -237,7 +237,7 @@ export function useItem(id, opts = {}) {
     case 'torch': say('Факел горит. Ничего не происходит.'); return true;
     case 'lute': say(['Вы сыграли «Я джва года ждал». Птицы замолкли.', 'Бреньк. Ближайший эльф скривился.', 'Вы исполнили балладу о корованах. Скупая слеза.'][Math.floor(Math.random() * 3)]); return true;
     default:
-      say(`Это ${it.name.toLowerCase()}. Его можно продать.`);
+      say(`Это ${it.name.toLowerCase()}. Можно продать торговцу.`);
       return false;
   }
 }

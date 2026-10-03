@@ -185,7 +185,7 @@ export function commandArmy(order, groups = [1, 2, 3], quiet = false) {
     });
     lastSquad = sq;
     sq.cry = { villain: 'За Злого! В атаку!', guard: 'За императора! Вперёд!', elves: 'За лес! Вперёд!' }[game.playerFaction];
-    msg = `Войска выступили: ${T.name}`;
+    msg = `Войска выступили на ${T.name}`;
   } else if (order === 'caravan') {
     const cv = caravans.filter(c => c.alive && c.state !== 'robbed').sort((a, b) => playerDist(a.pos) - playerDist(b.pos))[0];
     if (!cv) return { ok: false, msg: 'Поблизости нет корованов' };

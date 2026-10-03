@@ -135,7 +135,7 @@ function taskDefend(raid) {
 function taskHunt(force = false) {
   const victim = (force || Math.random() < 0.5) && game.commander?.alive ? game.commander : null;
   const t = victim ? {
-    type: 'hunt', title: `Убить ${victim.name}`, pay: 150, rep: 4, victim, save: () => ({}),
+    type: 'hunt', title: `Убить командира стражи (цель: ${victim.name})`, pay: 150, rep: 4, victim, save: () => ({}),
     speech: `${victim.name} водит солдат на наш лес. Убей его — и солдаты долго не сунутся!`,
     poi: () => ({ x: victim.pos.x, z: victim.pos.z }),
     progress: () => `Цель во дворце, ${Math.round(playerDist(victim.pos))} м`,
@@ -204,7 +204,7 @@ export function updateObjectives() {
   const cr = Math.max(S.caravansRobbed ?? 0, stats().caravansRobbed ?? 0);
   game.journal.setObjective('elves:raids', `Пережить набеги на деревню (${Math.min(3, S.raidsSurvived)}/3)`, S.raidsSurvived >= 3);
   game.journal.setObjective('elves:caravans', `Ограбить корованы (${Math.min(3, cr)}/3)`, cr >= 3);
-  game.journal.setObjective('elves:boss', 'Убить Злого или Императора', S.bossDead.villain || S.bossDead.emperor);
+  game.journal.setObjective('elves:boss', 'Убить Злого или императора', S.bossDead.villain || S.bossDead.emperor);
 }
 
 export function startElves() {
