@@ -46,7 +46,10 @@ function finalHeight(x, z) {
   const rd = distToAnyRoad(x, z);
   if (rd < 14) {
     const smooth = (rawHeight(x + 9, z) + rawHeight(x - 9, z) + rawHeight(x, z + 9) + rawHeight(x, z - 9)) / 4;
-    h = lerp(h, Math.max(smooth, WATER_LEVEL + 1.5), (1 - rd / 14) * 0.6);
+    // (world builder) don't re-raise roads inside flattened settlement sites
+    let site = 0;
+    for (const L of [LOC.town, LOC.palace, LOC.elfVillage, LOC.fort]) site = Math.max(site, 1 - smoothstep(L.r, L.r + 40, Math.hypot(x - L.x, z - L.z)));
+    h = lerp(h, Math.max(smooth, WATER_LEVEL + 1.5), (1 - rd / 14) * 0.6 * (1 - site));
   }
   return h;
 }
