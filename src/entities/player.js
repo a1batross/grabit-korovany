@@ -4,7 +4,8 @@ import * as THREE from 'three';
 import { game } from '../core/game.js';
 import { input } from '../core/input.js';
 import { groundAt } from '../world/terrain.js';
-import { segmentBlocked } from '../world/colliders.js';
+import { pointBlocked } from '../world/colliders.js';
+import { treesNear } from '../world/trees.js';
 
 export const interactables = new Set();
 // Register: { pos: () => Vector3|{x,y,z}, r: number, label: () => string, use: () => void, enabled?: () => bool }
@@ -12,6 +13,8 @@ export function addInteractable(o) { interactables.add(o); return () => interact
 
 export const cam = {
   yaw: 0, pitch: -0.15, dist: 4.2, firstPerson: false, shake: 0,
+  shoulder: 0.55,
+  curDist: 4.2, // smoothed actual distance (pulled in by walls, eases back out)
   sensitivity: 0.0022,
 };
 
@@ -90,7 +93,7 @@ function updateCamera(dt) {
   if (!p) return;
   const head = p.body.parts.head;
   const crawl = p.moveMode === 'crawl';
-  const eyeY = p.pos.y + (crawl ? 0.45 : p.moveMode === 'wheelchair' ? 1.25 : 1.65) * p.scale;
+  const eyeY = p.renderY + (crawl ? 0.45 : p.moveMode === 'wheelchair' ? 1.25 : 1.65) * p.scale;
   const shake = cam.shake; cam.shake = Math.max(0, cam.shake - dt * 1.5);
   const sx = (Math.random() - 0.5) * shake * 0.3, sy = (Math.random() - 0.5) * shake * 0.3;
 
@@ -112,24 +115,40 @@ function updateCamera(dt) {
     head.visible = true;
     // over-the-shoulder
     const rightX = -Math.cos(cam.yaw), rightZ = Math.sin(cam.yaw);
-    const shoulder = 0.55;
-    const tx = p.pos.x + rightX * shoulder, tz = p.pos.z + rightZ * shoulder, ty = eyeY + 0.15;
-    let d = cam.dist;
-    let cx = tx - dir.x * d, cy = ty - dir.y * d, cz = tz - dir.z * d;
-    // keep above terrain
-    for (let i = 0; i < 6; i++) {
-      const g = groundAt(cx, cz) + 0.4;
-      if (cy >= g) break;
-      d *= 0.75; cx = tx - dir.x * d; cy = ty - dir.y * d; cz = tz - dir.z * d;
-    }
-    // pull the camera in front of walls
-    for (let i = 0; i < 8 && d > 0.6 && segmentBlocked(tx, ty, tz, tx - dir.x * (d + 0.5), ty - dir.y * (d + 0.5), tz - dir.z * (d + 0.5), 0.35); i++) {
-      d *= 0.75; cx = tx - dir.x * d; cy = ty - dir.y * d; cz = tz - dir.z * d;
-    }
-    cy = Math.max(cy, groundAt(cx, cz) + 0.4);
+    // shift the look-at point over the right shoulder, but not into a wall we're hugging
+    let shoulder = 0.55;
+    while (shoulder > 0 && pointBlocked(p.pos.x + rightX * shoulder, eyeY + 0.15, p.pos.z + rightZ * shoulder, 0.2)) shoulder -= 0.1;
+    cam.shoulder += (Math.max(0, shoulder) - cam.shoulder) * Math.min(1, dt * 8);
+    const tx = p.pos.x + rightX * cam.shoulder, tz = p.pos.z + rightZ * cam.shoulder, ty = eyeY + 0.15;
+    // How far back can the camera go before hitting a wall, a tree trunk or the ground?
+    const want = clearDistance(tx, ty, tz, dir, cam.dist);
+    // pull in quickly (don't show the inside of walls), ease back out slowly (no popping)
+    const rate = want < cam.curDist ? 18 : 3.5;
+    cam.curDist += (want - cam.curDist) * Math.min(1, dt * rate);
+    if (cam.curDist > want + 0.6) cam.curDist = want + 0.6; // never lag far behind into a wall
+    const d = cam.curDist;
+    const cx = tx - dir.x * d, cz = tz - dir.z * d;
+    let cy = ty - dir.y * d;
+    cy = Math.max(cy, groundAt(cx, cz) + 0.35);
     // camera squeezed against a wall: hide our own body instead of filling the screen with it
     if (d < 1.3) p.body.root.visible = false;
     camera.position.set(cx + sx, cy + sy, cz);
     camera.lookAt(tx + dir.x * 10, ty + dir.y * 10, tz + dir.z * 10);
   }
+}
+
+// March from the look-at point back towards the desired camera spot; stop just before the first obstacle.
+const _trees = [];
+function clearDistance(tx, ty, tz, dir, maxD) {
+  const step = 0.2, margin = 0.35;
+  for (let t = step; t <= maxD + margin; t += step) {
+    const x = tx - dir.x * t, y = ty - dir.y * t, z = tz - dir.z * t;
+    let hit = y < groundAt(x, z) + 0.25 || pointBlocked(x, y, z, 0.15);
+    if (!hit) {
+      _trees.length = 0; treesNear(x, z, 1.5, _trees);
+      for (const tr of _trees) if ((tr.x - x) ** 2 + (tr.z - z) ** 2 < (tr.r + 0.25) ** 2 && y < tr.y + 3.5 * tr.s) { hit = true; break; }
+    }
+    if (hit) return Math.max(0.4, Math.min(maxD, t - margin));
+  }
+  return maxD;
 }

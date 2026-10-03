@@ -6,6 +6,10 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { game } from '../../core/game.js';
 import { ROADS } from '../../world/zones.js';
 import { groundAt } from '../../world/terrain.js';
+import { floorAt } from '../../world/colliders.js';
+
+// Height the wagon rolls on: terrain, or a walkable deck (bridges) reachable from the current height.
+const surfaceAt = (x, z, y) => Math.max(groundAt(x, z), floorAt(x, z, y, 0.8));
 import { addInteractable } from '../../entities/player.js';
 import { spawn } from '../../entities/spawn.js';
 import { loft } from '../../entities/model-geometry.js';
@@ -215,9 +219,11 @@ export class Caravan {
     else { let d = targetYaw - this.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); this.yaw += d * Math.min(1, dt * 1.5); }
     const nx = p.x, nz = p.z;
     if (dt > 0) this.vel.set((nx - this.pos.x) / dt, 0, (nz - this.pos.z) / dt); else this.vel.set(0, 0, 0);
-    this.pos.set(nx, groundAt(nx, nz), nz);
+    // first placement (spawn / load): look a little above the terrain so a wagon spawned on a bridge lands on the deck
+    const y0 = this._placed ? this.pos.y : groundAt(nx, nz) + 3; this._placed = true;
+    this.pos.set(nx, surfaceAt(nx, nz, y0), nz);
     const f = this.forward;
-    const hf = groundAt(nx + f.x * 2.5, nz + f.z * 2.5), hb = groundAt(nx - f.x * 2, nz - f.z * 2);
+    const hf = surfaceAt(nx + f.x * 2.5, nz + f.z * 2.5, this.pos.y), hb = surfaceAt(nx - f.x * 2, nz - f.z * 2, this.pos.y);
     const r = this.mesh.root;
     r.position.copy(this.pos);
     r.rotation.y = this.yaw;

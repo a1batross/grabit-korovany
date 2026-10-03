@@ -52,6 +52,7 @@ export class Actor {
     this.ai = null;      // AI brain
     this.home = o.home ?? { x: this.pos.x, z: this.pos.z };
     this.lod = 0; this.updateAccum = 0;
+    this.stepOffset = 0;                    // visual-only smoothing of stair steps (see update)
     this.body = createBody(this.kind, o.look);
     this.body.root.userData.actor = this;
     this.weapon = WEAPONS[o.weapon ?? 'fists'];
@@ -64,6 +65,8 @@ export class Actor {
     game.scene.add(this.body.root);
   }
 
+  // Smoothed height for rendering & camera (physics uses pos.y)
+  get renderY() { return this.pos.y + this.stepOffset; }
   get headPos() { return new THREE.Vector3(this.pos.x, this.pos.y + this.currentHeight - 0.15, this.pos.z); }
   get currentHeight() { return (this.moveMode === 'crawl' ? 0.5 : this.moveMode === 'wheelchair' ? 1.3 : 1.8) * this.scale; }
   get forward() { return new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)); }
@@ -270,7 +273,7 @@ export class Actor {
     it.jump = false;
     this.vel.y -= 18 * dt;
 
-    const prevY = this.pos.y;
+    const prevY = this.pos.y, wasGrounded = this.onGround;
     this.pos.x += this.vel.x * dt; this.pos.z += this.vel.z * dt; this.pos.y += this.vel.y * dt;
     // collisions
     collideTrees(this.pos, this.radius);
@@ -285,8 +288,15 @@ export class Actor {
         if (!this.alive) this.deathCause = 'fall';
       }
       this.pos.y = ground; this.vel.y = 0; this.onGround = true;
-    } else if (this.pos.y - ground > 0.3) this.onGround = false;
-    else if (this.vel.y <= 0) { this.pos.y = ground; this.vel.y = 0; this.onGround = true; }
+    } else if (wasGrounded && this.vel.y <= 0 && this.pos.y - ground < 0.7) {
+      // walking down steps / slopes: stay glued to the ground instead of "falling" off every step
+      this.pos.y = ground; this.vel.y = 0; this.onGround = true;
+    } else this.onGround = false;
+    // Steps make the physics height jump by a whole riser in one frame. Keep that jump out of the
+    // rendered height (and the camera) and let it ease in, while terrain slopes stay exact.
+    const dy = this.pos.y - prevY;
+    if (wasGrounded && this.onGround && Math.abs(dy) > 0.09 && Math.abs(dy) < 0.8) this.stepOffset -= dy;
+    this.stepOffset = Math.abs(this.stepOffset) > 1 ? 0 : this.stepOffset * Math.exp(-dt * 12);
 
     // block
     this.blocking = !!it.block && this.canBlock && this.attackT < 0;
@@ -310,6 +320,7 @@ export class Actor {
     // render sync
     const speed = Math.hypot(this.vel.x, this.vel.z);
     this.body.root.position.copy(this.pos);
+    this.body.root.position.y += this.stepOffset;
     this.body.root.rotation.y = this.yaw;
     if (this.lod < 2) {
       this.body.animate({

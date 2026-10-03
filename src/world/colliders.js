@@ -120,3 +120,18 @@ export function segmentBlocked(ax, ay, az, bx, by, bz, step = 2) {
 
 // Iterate registered static colliders (used by the minimap to draw building footprints).
 export function forEachCollider(fn) { for (const b of boxes) fn(b); for (const c of circles) fn(c); }
+
+// Is the point (x,y,z) inside any static collider? (camera obstruction tests)
+export function pointBlocked(x, y, z, pad = 0) {
+  let blocked = false;
+  query(x, z, pad + 0.1, o => {
+    if (blocked || y > o.top + pad || y < o.bottom - pad) return;
+    if (o.type === 'circle') { if ((x - o.x) ** 2 + (z - o.z) ** 2 < (o.r + pad) ** 2) blocked = true; }
+    else {
+      const dx = x - o.x, dz = z - o.z;
+      const lx = dx * o.cos - dz * o.sin, lz = dx * o.sin + dz * o.cos;
+      if (Math.abs(lx) < o.hw + pad && Math.abs(lz) < o.hd + pad) blocked = true;
+    }
+  });
+  return blocked;
+}
