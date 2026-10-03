@@ -76,7 +76,10 @@ export async function startGame(opts) {
   await nextFrame();
   game.playerFaction = opts.faction;
   game.gold = opts.save?.gold ?? 50;
-  const startAt = { elves: LOC.elfVillage, guard: LOC.palace, villain: LOC.fort }[opts.faction];
+  const placeKey = { elves: 'elves:square', guard: 'palace:yard', villain: 'fort:yard' }[opts.faction];
+  const fallback = { elves: LOC.elfVillage, guard: LOC.palace, villain: LOC.fort }[opts.faction];
+  const pl = game.places.get(placeKey);
+  const startAt = pl ? { x: pl.x - 6, z: pl.z - 12 } : fallback;
   const preset = { elves: 'elf', guard: 'guard', villain: 'villain' }[opts.faction];
   const player = spawn(preset, startAt.x + 6, startAt.z + 12, { isPlayer: true, name: opts.name ?? 'Игрок',
     ...(opts.faction === 'villain' ? { hp: 300 } : { hp: 120 }),

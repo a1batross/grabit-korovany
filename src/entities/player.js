@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { game } from '../core/game.js';
 import { input } from '../core/input.js';
 import { groundAt } from '../world/terrain.js';
+import { segmentBlocked } from '../world/colliders.js';
 
 export const interactables = new Set();
 // Register: { pos: () => Vector3|{x,y,z}, r: number, label: () => string, use: () => void, enabled?: () => bool }
@@ -119,6 +120,10 @@ function updateCamera(dt) {
     for (let i = 0; i < 6; i++) {
       const g = groundAt(cx, cz) + 0.4;
       if (cy >= g) break;
+      d *= 0.75; cx = tx - dir.x * d; cy = ty - dir.y * d; cz = tz - dir.z * d;
+    }
+    // pull the camera in front of walls
+    for (let i = 0; i < 8 && d > 0.6 && segmentBlocked(tx, ty, tz, tx - dir.x * (d + 0.5), ty - dir.y * (d + 0.5), tz - dir.z * (d + 0.5), 0.35); i++) {
       d *= 0.75; cx = tx - dir.x * d; cy = ty - dir.y * d; cz = tz - dir.z * d;
     }
     cy = Math.max(cy, groundAt(cx, cz) + 0.4);

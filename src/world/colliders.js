@@ -98,8 +98,8 @@ export function floorAt(x, z, y, stepUp = 0.6) {
 }
 
 // Line-of-sight / projectile test against boxes in 2D (cheap): returns true if segment is blocked below given height.
-export function segmentBlocked(ax, ay, az, bx, by, bz) {
-  const steps = Math.ceil(Math.hypot(bx - ax, bz - az) / 2);
+export function segmentBlocked(ax, ay, az, bx, by, bz, step = 2) {
+  const steps = Math.ceil(Math.hypot(bx - ax, bz - az) / step);
   for (let s = 1; s < steps; s++) {
     const t = s / steps;
     const x = ax + (bx - ax) * t, y = ay + (by - ay) * t, z = az + (bz - az) * t;
