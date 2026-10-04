@@ -13,6 +13,11 @@ export const name = 'screens';
 
 const canPlayUI = () => game.started && game.player && !document.getElementById('menu-root').children.length;
 
+function pauseOnFocusLoss() {
+  // Preserve an existing inventory, shop, or dialogue: it already freezes the world.
+  if (canPlayUI() && game.player.alive && !game.uiOpen && !game.paused) openPause();
+}
+
 function onKeyDown(e) {
   const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
   if (e.code === 'F5' || e.code === 'F9') {
@@ -54,6 +59,8 @@ export function init() {
   loadSettings();
   initAchievements();
   window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('blur', pauseOnFocusLoss);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pauseOnFocusLoss(); });
   // browser released pointer lock (Esc while playing) -> pause menu
   game.bus.on('pointerlock', locked => {
     if (locked || game.uiOpen || !canPlayUI() || !game.player.alive) return;

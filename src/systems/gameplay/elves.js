@@ -62,6 +62,7 @@ let taskId = 1;
 function giveTask(t) {
   t.id = taskId++; t.t0 = S.t;
   E.task = t;
+  if (t.type !== 'defend') E.lastType = t.type;
   say(`${chiefName()}: «${t.speech}»`);
   game.journal.add(`Задание вождя: ${t.title}.`);
   game.journal.setObjective('task:' + t.id, `Задание: ${t.title}`);
@@ -144,13 +145,17 @@ function taskHunt(force = false) {
   return t;
 }
 
-function newTask() {
-  const pool = ['caravan', 'ambush', 'ambush', 'caravan'];
-  if (S.tasksDone >= 3) pool.push('hunt');
-  let k = pick(pool);
-  if (k === E.lastType) k = pick(pool);
-  E.lastType = k;
-  giveTask({ caravan: taskCaravan, ambush: taskAmbush, hunt: taskHunt }[k]());
+function availableTasks() {
+  const types = ['caravan', 'ambush'];
+  if (S.tasksDone >= 3 && game.commander?.alive) types.push('hunt');
+  return types;
+}
+
+function newTask(requested = null) {
+  const pool = availableTasks();
+  const k = pool.includes(requested) ? requested : pick(pool.filter(type => type !== E.lastType));
+  // A selected hunt must not randomly turn into yet another caravan robbery.
+  giveTask({ caravan: taskCaravan, ambush: taskAmbush, hunt: () => taskHunt(true) }[k]());
 }
 
 function talkChief() {
@@ -164,7 +169,10 @@ function talkChief() {
       <b>Набегов отбито:</b> ${S.raidsSurvived} • <b>корованов ограблено:</b> ${stats().caravansRobbed}</p>
       ${t ? `<p><b>Задание:</b> ${t.title}<br><i>«${t.speech}»</i>${t.progress ? `<br><small>${t.progress()}</small>` : ''}</p>` : '<p>Сейчас заданий нет — но я найду тебе дело.</p>'}`,
     buttons: [
-      ...(!t ? [{ label: 'Дай задание, вождь!', fn: newTask }] : []),
+      ...(!t ? availableTasks().map(type => ({
+        label: { caravan: 'Хочу ограбить корован', ambush: 'Устроим засаду на патруль', hunt: 'Выследить командира стражи' }[type],
+        fn: () => newTask(type),
+      })) : []),
       ...(t && t.type !== 'defend' ? [{ label: 'Отказаться от задания', fn: () => finishTask(false, 'Вы отказались.') }] : []),
     ],
   });
@@ -188,7 +196,7 @@ export function loadElves(d) {
   if (E.task) { E.task.cleanup?.(); for (const m of E.task.members ?? []) m.remove(); E.task = null; }
   game.compassPois.delete('order');
   taskId = Math.max(taskId, d.taskId ?? 1);
-  E.nextTaskT = S.t + (d.nextTaskIn ?? 20); E.lastType = d.lastType;
+  E.nextTaskT = S.t + (d.nextTaskIn ?? 20); E.lastType = d.lastType ?? d.task?.type;
   const st = d.task;
   let t = null;
   if (st?.type === 'caravan') t = taskCaravan();
@@ -208,7 +216,7 @@ export function updateObjectives() {
 }
 
 export function startElves() {
-  E.task = null; E.nextTaskT = 0;
+  E.task = null; E.lastType = null; E.nextTaskT = 0;
   updateObjectives();
   giveTask(taskCaravan());
   say(`${chiefName()} ждёт вас на площади деревни (E — поговорить).`);

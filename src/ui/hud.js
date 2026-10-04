@@ -79,7 +79,7 @@ function updateHud(dt) {
   els.hpt.textContent = `Здоровье ${Math.max(0, Math.ceil(p.hp))} / ${p.maxHp}`;
   els.stb.style.width = (p.stamina / p.maxStamina * 100) + '%';
   els.stt.textContent = `Выносливость ${Math.ceil(p.stamina)}`;
-  els.bleed.textContent = p.bleed > 0 ? `🩸 КРОВОТЕЧЕНИЕ! (−${p.bleed.toFixed(1)}/с) Нужен бинт или лекарь!` : '';
+  els.bleed.textContent = p.alive && p.bleed > 0 ? `🩸 КРОВОТЕЧЕНИЕ! (−${p.bleed.toFixed(1)}/с) Нажмите I и перевяжитесь (бинт или травы) — пока открыт инвентарь, время стоит. Нечем — бегом к лекарю!` : '';
   const hpFrac = p.hp / p.maxHp;
   els.vign.style.boxShadow = `inset 0 0 ${80 + (1 - hpFrac) * 200}px rgba(160,0,0,${Math.max(0, 0.75 - hpFrac) * 1.1})`;
 

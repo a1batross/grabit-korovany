@@ -17,6 +17,7 @@ const PROS_ITEM = { arm: 'prosthetic_arm', leg: 'prosthetic_leg', eye: 'glass_ey
 
 export function toggleInventory() {
   if (currentModal() === 'inventory') { closeModal(); return; }
+  if (game.player?.bleed > 0) filter = 'med';
   openModal('inventory', { title: 'Инвентарь<small>и состояние тела</small>', render, onAct, onKey });
 }
 
@@ -106,7 +107,7 @@ function doll(p) {
 
 function statusLines(p) {
   let s = '';
-  if (p.bleed > 0) s += `<div class="bleed">🩸 Кровотечение −${p.bleed.toFixed(1)}/с — нужен бинт!</div>`;
+  if (p.bleed > 0) s += `<div class="bleed">🩸 Кровотечение −${p.bleed.toFixed(1)}/с. Время остановлено. Бинт остановит кровь, травы ослабят кровотечение. Нет припасов — нужен лекарь.</div>`;
   for (const part of ['armL', 'armR', 'legL', 'legR', 'eyeL', 'eyeR']) {
     const st = p.limbs[part];
     if (st === 'lost') s += `<div class="lost">✖ Отсутствует: ${PART_NAMES[part]}</div>`;

@@ -116,6 +116,7 @@ function giveOrder(o, viaCommander = false) {
   o.id = orderId++;
   o.t0 = S.t;
   G.order = o;
+  if (['post', 'patrol', 'spy', 'raid'].includes(o.type)) G.lastType = o.type;
   const msg = `${cmdName()}: «${o.speech}»`;
   say(viaCommander ? msg : `Гонец от командира. ${msg}`, '');
   game.journal.add(`Приказ командира: ${o.title}.`);
@@ -134,7 +135,7 @@ function orderPost(p0 = {}) {
   const posts = placeList('palace:posts');
   const i = Math.min(p0.i ?? randInt(0, posts.length - 1), posts.length - 1);
   const p = posts[i];
-  const dur = p0.dur ?? randInt(60, 100);
+  const dur = p0.dur ?? randInt(25, 40);
   let held = p0.held ?? 0, away = p0.away ?? 0, warned = false;
   return {
     type: 'post', title: `Стоять на посту ${POST_NAMES[i % POST_NAMES.length]}`, pay: 20, merit: 2,
@@ -288,7 +289,7 @@ export function loadGuard(d) {
   game.compassPois.delete('order');
   orderId = Math.max(orderId, d.orderId ?? 1);
   G.nextOrderT = S.t + (d.nextOrderIn ?? 20);
-  G.lastType = d.lastType;
+  G.lastType = d.lastType ?? d.order?.type;
   const so = d.order;
   if (!so || S.deserter) { setHud(); return; }
   let o = null;
@@ -307,12 +308,11 @@ export function loadGuard(d) {
 
 function newOrder(viaCommander = false) {
   if (S.deserter) return;
-  const pool = ['post', 'post', 'patrol', 'spy'];
+  // Senior guards lead operations instead of repeatedly waiting through sentry duty.
+  const pool = S.rankIdx < 2 ? ['post', 'patrol', 'spy'] : ['patrol', 'spy'];
   if (S.rankIdx >= 1 || S.ordersDone >= 2) pool.push('raid');
   if (S.rankIdx >= 2) pool.push('raid', 'spy');
-  let t = pick(pool);
-  if (G.lastType === t && Math.random() < 0.7) t = pick(pool);
-  G.lastType = t;
+  const t = pick(pool.filter(type => type !== G.lastType));
   const o = { post: orderPost, patrol: orderPatrol, spy: orderSpy, raid: orderRaid }[t]();
   giveOrder(o, viaCommander);
 }
@@ -357,7 +357,7 @@ function talkCommander() {
 // ---------- system ----------
 let unreg = null;
 export function startGuard() {
-  G.order = null; G.nextOrderT = S.t + 3; G.reprimandCd = 0;
+  G.order = null; G.lastType = null; G.nextOrderT = S.t + 3; G.reprimandCd = 0;
   setRank(S.rankIdx, true);
   game.journal.setObjective('guard:obey', 'Слушаться командира (приказы — у командира во дворце, E)');
   game.journal.setObjective('guard:rank', 'Дослужиться до звания капитана');
